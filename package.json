@@ -1,0 +1,30 @@
+{
+  "name": "hedera-commerce-agent",
+  "version": "1.0.0",
+  "description": "Commerce Agent",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/abdoulxw3/hedera-commerce-agent.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/abdoulxw3/hedera-commerce-agent/issues"
+  },
+  "homepage": "https://github.com/abdoulxw3/hedera-commerce-agent#readme",
+  "dependencies": {
+    "@hashgraph/sdk": "^2.81.0",
+    "@langchain/core": "^1.1.48",
+    "@langchain/langgraph": "^1.3.4",
+    "@langchain/openai": "^1.4.7",
+    "dotenv": "^17.4.2",
+    "hedera-agent-kit": "^3.8.2",
+    "langchain": "^1.4.4"
+  }
+}
