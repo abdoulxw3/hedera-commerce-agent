@@ -1,4 +1,4 @@
-const services = {
+export const services = {
   'weather-api': {
     name: 'Weather API',
     requiredHbar: 1,
@@ -13,6 +13,26 @@ const services = {
     name: 'AI Research Reports',
     requiredHbar: 5,
     content: 'ACCESS GRANTED: Your AI report is ready. Token: RPT-HEDERA-2024-PREMIUM'
+  },
+  'hcs-logger': {
+    name: 'HCS Message Logger',
+    requiredHbar: 1,
+    content: 'ACCESS GRANTED: Your message will be stored on Hedera Consensus Service'
+  },
+  'token-creator': {
+    name: 'HTS Token Creator',
+    requiredHbar: 2,
+    content: 'ACCESS GRANTED: Your custom token will be created on Hedera Token Service'
+  },
+  'nft-minter': {
+    name: 'NFT Minter',
+    requiredHbar: 3,
+    content: 'ACCESS GRANTED: Your NFT will be minted on Hedera Token Service'
+  },
+  'defi-rates': {
+    name: 'DeFi Rates',
+    requiredHbar: 0.5,
+    content: 'ACCESS GRANTED: Fetching live DeFi rates from Hedera ecosystem'
   }
 };
 
@@ -40,5 +60,3 @@ export function grantAccess(serviceId, paymentVerified) {
     message: service.content
   };
 }
-
-export { services };
