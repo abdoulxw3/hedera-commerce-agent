@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HashPay</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0a0f;color:#fff;font-family:'Segoe UI',sans-serif;min-height:100vh}
+header{padding:24px 32px;border-bottom:1px solid #1a1a2e;display:flex;align-items:center;gap:12px}
+header h1{font-size:24px;background:linear-gradient(90deg,#8b5cf6,#06b6d4);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+header span{background:#1a1a2e;color:#8b5cf6;font-size:11px;padding:4px 10px;border-radius:20px;border:1px solid #8b5cf6}
+.hero{text-align:center;padding:60px 20px 40px}
+.hero h2{font-size:36px;font-weight:700;margin-bottom:12px}
+.hero p{color:#888;font-size:16px;max-width:500px;margin:0 auto 32px}
+.input-row{display:flex;gap:10px;max-width:480px;margin:0 auto}
+.input-row input{flex:1;background:#1a1a2e;border:1px solid #2a2a4e;color:#fff;padding:12px 16px;border-radius:10px;font-size:14px}
+.input-row input::placeholder{color:#555}
+.services{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;padding:20px 32px 60px;max-width:1100px;margin:0 auto}
+.card{background:#111120;border:1px solid #1a1a2e;border-radius:16px;padding:24px;cursor:pointer;transition:all 0.2s}
+.card:hover{border-color:#8b5cf6;transform:translateY(-2px)}
+.card-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
+.card-icon{font-size:28px}
+.card-cost{background:#1a1a2e;color:#06b6d4;font-size:12px;padding:4px 10px;border-radius:20px}
+.card h3{font-size:16px;margin-bottom:6px}
+.card p{color:#666;font-size:13px;margin-bottom:16px}
+.card button{width:100%;background:linear-gradient(90deg,#8b5cf6,#06b6d4);border:none;color:#fff;padding:10px;border-radius:8px;font-size:14px;cursor:pointer;font-weight:600}
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:100;align-items:center;justify-content:center}
+.modal.open{display:flex}
+.modal-box{background:#111120;border:1px solid #2a2a4e;border-radius:20px;padding:32px;width:90%;max-width:440px}
+.modal-box h3{font-size:20px;margin-bottom:8px}
+.modal-box p{color:#666;font-size:13px;margin-bottom:20px}
+.modal-box input,.modal-box textarea{width:100%;background:#1a1a2e;border:1px solid #2a2a4e;color:#fff;padding:12px;border-radius:10px;font-size:14px;margin-bottom:12px}
+.modal-box textarea{height:80px;resize:none}
+.modal-actions{display:flex;gap:10px;margin-top:8px}
+.modal-actions button{flex:1;padding:12px;border-radius:10px;border:none;font-size:14px;cursor:pointer;font-weight:600}
+.btn-cancel{background:#1a1a2e;color:#888}
+.btn-pay{background:linear-gradient(90deg,#8b5cf6,#06b6d4);color:#fff}
+.result{margin-top:16px;background:#0d1f0d;border:1px solid #1a4a1a;border-radius:10px;padding:14px;font-size:13px;color:#4ade80;white-space:pre-wrap;display:none}
+.result.error{background:#1f0d0d;border-color:#4a1a1a;color:#f87171}
+.loading{text-align:center;color:#8b5cf6;font-size:13px;margin-top:12px;display:none}
+</style>
+</head>
+<body>
+<header>
+<h1>⚡ HashPay</h1>
+<span>Hedera Testnet</span>
+</header>
+<div class="hero">
+<h2>Payment-Gated Services</h2>
+<p>Pay HBAR. Get instant access. Powered by Hedera.</p>
+<div class="input-row">
+<input type="text" id="globalAccount" placeholder="Your Hedera Account ID (0.0.xxxxx)"/>
+</div>
+</div>
+<div class="services" id="services"></div>
+<div class="modal" id="modal">
+<div class="modal-box">
+<h3 id="modal-title"></h3>
+<p id="modal-desc"></p>
+<input type="text" id="modal-account" placeholder="Hedera Account ID (0.0.xxxxx)"/>
+<textarea id="modal-extra" placeholder="Extra params (optional)"></textarea>
+<div class="loading" id="loading">⏳ Processing on Hedera...</div>
+<div class="result" id="result"></div>
+<div class="modal-actions">
+<button class="btn-cancel" onclick="closeModal()">Cancel</button>
+<button class="btn-pay" onclick="submitAccess()">Pay & Access</button>
+</div>
+</div>
+</div>
+<script>
+const icons={'weather-api':'🌤️','market-data':'📊','ai-reports':'🤖','hcs-logger':'📝','token-creator':'🪙','nft-minter':'🖼️','defi-rates':'💹'};
+const descs={'weather-api':'Get premium weather data','market-data':'Live market data feed','ai-reports':'AI-generated research reports','hcs-logger':'Store messages permanently on Hedera','token-creator':'Create your own HTS token on Hedera','nft-minter':'Mint an NFT on Hedera Token Service','defi-rates':'Live DeFi rates from Hedera ecosystem'};
+let currentService=null;
+fetch('/services').then(r=>r.json()).then(services=>{
+const c=document.getElementById('services');
+services.forEach(s=>{c.innerHTML+=`<div class="card"><div class="card-top"><span class="card-icon">${icons[s.id]||'⚙️'}</span><span class="card-cost">${s.cost}</span></div><h3>${s.name}</h3><p>${descs[s.id]||''}</p><button onclick="openModal('${s.id}','${s.name}','${s.cost}')">Pay & Access</button></div>`;});
+});
+function openModal(id,name,cost){currentService=id;document.getElementById('modal-title').textContent=name;document.getElementById('modal-desc').textContent='Cost: '+cost;document.getElementById('modal-account').value=document.getElementById('globalAccount').value;document.getElementById('modal-extra').value='';document.getElementById('result').style.display='none';document.getElementById('loading').style.display='none';document.getElementById('modal').classList.add('open');}
+function closeModal(){document.getElementById('modal').classList.remove('open');}
+async function submitAccess(){
+const accountId=document.getElementById('modal-account').value.trim();
+const extra=document.getElementById('modal-extra').value.trim();
+if(!accountId){alert('Please enter your Hedera account ID');return;}
+document.getElementById('loading').style.display='block';
+document.getElementById('result').style.display='none';
+try{
+const res=await fetch('/access',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({serviceId:currentService,accountId,extra})});
+const data=await res.json();
+const el=document.getElementById('result');
+el.style.display='block';
+el.className='result'+(res.ok?'':' error');
+el.textContent=res.ok?data.result:data.error;
+}catch(e){
+const el=document.getElementById('result');
+el.style.display='block';el.className='result error';el.textContent='Request failed: '+e.message;
+}
+document.getElementById('loading').style.display='none';
+}
+</script>
+</body>
+</html>
