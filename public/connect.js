@@ -7,7 +7,7 @@ window.connectWallet = async function() {
 
   try {
     // Use UniversalProvider which works in browsers
-    const { default: UniversalProvider } = await import('https://esm.sh/@walletconnect/universal-provider@2.17.0?bundle');
+    const { default: UniversalProvider } = await import('/wc.bundle.js');
 
     const provider = await UniversalProvider.init({
       projectId: PROJECT_ID,
