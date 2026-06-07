@@ -73,7 +73,7 @@ app.post('/execute', async (req, res) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`🛒 HashPay running on port ${PORT}`));
 
-import { TransferTransaction, Hbar, AccountId } from '@hashgraph/sdk';
+
 
 app.post('/build-transfer', async (req, res) => {
   try {
@@ -82,6 +82,18 @@ app.post('/build-transfer', async (req, res) => {
       .addHbarTransfer(AccountId.fromString(senderAccountId), new Hbar(-amount))
       .addHbarTransfer(AccountId.fromString(process.env.ACCOUNT_ID), new Hbar(amount));
     const txBytes = Buffer.from(tx.toBytes()).toString('base64');
+    res.json({ txBytes });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+import { buildTransfer } from './tools/buildTransfer.js';
+
+app.post('/build-transfer', async (req, res) => {
+  try {
+    const { senderAccountId, amount } = req.body;
+    const txBytes = await buildTransfer(senderAccountId, amount, process.env.ACCOUNT_ID);
     res.json({ txBytes });
   } catch(e) {
     res.status(500).json({ error: e.message });
