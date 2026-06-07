@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>HashPay — Payment-Gated Services on Hedera</title>
-<script type="module" src="https://cdn.jsdelivr.net/npm/@hashgraph/hedera-wallet-connect@latest/dist/index.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:#0a0a0f;color:#fff;font-family:'Segoe UI',sans-serif;min-height:100vh}
@@ -31,11 +30,10 @@ header{padding:20px 32px;border-bottom:1px solid #1a1a2e;display:flex;align-item
 .modal.open{display:flex}
 .modal-box{background:#111120;border:1px solid #2a2a4e;border-radius:20px;padding:28px;width:90%;max-width:420px}
 .modal-box h3{font-size:18px;margin-bottom:6px}
-.modal-box .cost-badge{display:inline-block;background:#1a1a2e;color:#06b6d4;font-size:12px;padding:4px 12px;border-radius:20px;margin-bottom:16px}
-.modal-box input,.modal-box textarea{width:100%;background:#1a1a2e;border:1px solid #2a2a4e;color:#fff;padding:11px;border-radius:10px;font-size:13px;margin-bottom:10px}
-.modal-box textarea{height:70px;resize:none}
+.cost-badge{display:inline-block;background:#1a1a2e;color:#06b6d4;font-size:12px;padding:4px 12px;border-radius:20px;margin-bottom:16px}
 .step{background:#0d0d1f;border:1px solid #2a2a4e;border-radius:10px;padding:12px;margin-bottom:12px;font-size:12px;color:#888}
 .step strong{color:#8b5cf6}
+.modal-box input{width:100%;background:#1a1a2e;border:1px solid #2a2a4e;color:#fff;padding:11px;border-radius:10px;font-size:13px;margin-bottom:10px}
 .modal-actions{display:flex;gap:10px;margin-top:4px}
 .modal-actions button{flex:1;padding:11px;border-radius:10px;border:none;font-size:13px;cursor:pointer;font-weight:600}
 .btn-cancel{background:#1a1a2e;color:#888}
@@ -45,6 +43,7 @@ header{padding:20px 32px;border-bottom:1px solid #1a1a2e;display:flex;align-item
 .result.error{background:#1f0d0d;border-color:#4a1a1a;color:#f87171}
 .loading{text-align:center;color:#8b5cf6;font-size:12px;margin-top:10px;display:none}
 .notify{position:fixed;bottom:24px;right:24px;background:#1a1a2e;border:1px solid #8b5cf6;color:#fff;padding:12px 20px;border-radius:12px;font-size:13px;z-index:200;display:none}
+.extra-field{display:none;width:100%;background:#1a1a2e;border:1px solid #2a2a4e;color:#fff;padding:11px;border-radius:10px;font-size:13px;margin-bottom:10px}
 </style>
 </head>
 <body>
@@ -55,20 +54,17 @@ header{padding:20px 32px;border-bottom:1px solid #1a1a2e;display:flex;align-item
   </div>
   <button class="wallet-btn" id="walletBtn" onclick="connectWallet()">Connect Wallet</button>
 </header>
-
 <div class="hero">
   <h2>Payment-Gated Services</h2>
-  <p>Connect your HashPack wallet, pay HBAR, and get instant access to Hedera-powered services.</p>
+  <p>Connect your wallet, pay HBAR, and get instant access to Hedera-powered services.</p>
 </div>
-
 <div class="services" id="services"></div>
-
 <div class="modal" id="modal">
   <div class="modal-box">
     <h3 id="modal-title"></h3>
     <span class="cost-badge" id="modal-cost"></span>
-    <div class="step"><strong>How it works:</strong> Your wallet will sign an HBAR transfer to HashPay. Once confirmed on-chain, the service executes automatically.</div>
-    <textarea id="modal-extra" placeholder="Extra params (optional) e.g. token name,symbol,supply"></textarea>
+    <div class="step"><strong>How it works:</strong> Your wallet signs an HBAR transfer to HashPay. Once confirmed on-chain, the service executes automatically.</div>
+    <input class="extra-field" id="modal-extra" type="text" placeholder=""/>
     <div class="loading" id="loading">⏳ Processing on Hedera...</div>
     <div class="result" id="result"></div>
     <div class="modal-actions">
@@ -77,34 +73,31 @@ header{padding:20px 32px;border-bottom:1px solid #1a1a2e;display:flex;align-item
     </div>
   </div>
 </div>
-
 <div class="notify" id="notify"></div>
-
 <script>
 const icons={'weather-api':'🌤️','market-data':'📊','ai-reports':'🤖','hcs-logger':'📝','token-creator':'🪙','nft-minter':'🖼️','defi-rates':'💹'};
 const descs={'weather-api':'Get premium weather data','market-data':'Live market data feed','ai-reports':'AI-generated research reports','hcs-logger':'Store messages permanently on Hedera','token-creator':'Create your own HTS token','nft-minter':'Mint an NFT on Hedera','defi-rates':'Live DeFi rates from Hedera ecosystem'};
+const extraFields={'hcs-logger':'Message to store on Hedera','token-creator':'Token name, symbol, supply (e.g. MyToken,MTK,1000)','nft-minter':'Collection name, symbol (e.g. MyNFT,MNFT)'};
 
-let connectedAccount = null;
-let currentService = null;
+let connectedAccount=null;
+let currentService=null;
 
-function showNotify(msg) {
-  const el = document.getElementById('notify');
-  el.textContent = msg;
-  el.style.display = 'block';
-  setTimeout(() => el.style.display = 'none', 3000);
+function showNotify(msg){
+  const el=document.getElementById('notify');
+  el.textContent=msg;el.style.display='block';
+  setTimeout(()=>el.style.display='none',3000);
 }
 
-async function connectWallet() {
-  const btn = document.getElementById('walletBtn');
-  // Use HashPack deeplink for mobile, prompt account ID for desktop demo
-  const accountId = prompt('Enter your Hedera testnet account ID (e.g. 0.0.12345):\n\nFor full wallet connect, use HashPack browser extension.');
-  if (accountId && accountId.match(/^0\.0\.\d+$/)) {
-    connectedAccount = accountId;
-    btn.className = 'wallet-connected';
-    btn.textContent = '✅ ' + accountId;
-    showNotify('Wallet connected: ' + accountId);
-    document.querySelectorAll('.card button').forEach(b => b.disabled = false);
-  } else if (accountId) {
+async function connectWallet(){
+  const accountId=prompt('Enter your Hedera testnet account ID (e.g. 0.0.12345):');
+  if(accountId&&accountId.match(/^0\.0\.\d+$/)){
+    connectedAccount=accountId;
+    const btn=document.getElementById('walletBtn');
+    btn.className='wallet-connected';
+    btn.textContent='✅ '+accountId;
+    showNotify('Wallet connected: '+accountId);
+    document.querySelectorAll('.card button').forEach(b=>b.disabled=false);
+  } else if(accountId){
     showNotify('Invalid account ID format');
   }
 }
@@ -115,7 +108,7 @@ fetch('/services').then(r=>r.json()).then(services=>{
     c.innerHTML+=`<div class="card">
       <div class="card-top"><span class="card-icon">${icons[s.id]||'⚙️'}</span><span class="card-cost">${s.cost}</span></div>
       <h3>${s.name}</h3><p>${descs[s.id]||''}</p>
-      <button onclick="openModal('${s.id}','${s.name}','${s.cost}')" ${!connectedAccount?'disabled':''}>Pay & Access</button>
+      <button onclick="openModal('${s.id}','${s.name}','${s.cost}')" disabled>Pay & Access</button>
     </div>`;
   });
 });
@@ -125,9 +118,17 @@ function openModal(id,name,cost){
   currentService=id;
   document.getElementById('modal-title').textContent=name;
   document.getElementById('modal-cost').textContent='Cost: '+cost;
-  document.getElementById('modal-extra').value='';
   document.getElementById('result').style.display='none';
   document.getElementById('loading').style.display='none';
+  const extraEl=document.getElementById('modal-extra');
+  if(extraFields[id]){
+    extraEl.style.display='block';
+    extraEl.placeholder=extraFields[id];
+    extraEl.value='';
+  } else {
+    extraEl.style.display='none';
+    extraEl.value='';
+  }
   document.getElementById('modal').classList.add('open');
 }
 
