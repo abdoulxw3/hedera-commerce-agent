@@ -4,6 +4,194 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>HashPay — Payment-Gated Services on Hedera</title>
+<script type="module">
+import { HederaSessionRequestParams, HederaJsonRpcMethod, DAppConnector, HederaChainId } from 'https://cdn.jsdelivr.net/npm/@hashgraph/hedera-wallet-connect@1.3.5/+esm';
+import { AccountId, TransferTransaction, Hbar } from 'https://cdn.jsdelivr.net/npm/@hashgraph/sdk@2.50.0/+esm';
+
+const PROJECT_ID = '1eb25284f2c2cc52088780c04246372d';
+const APP_METADATA = {
+  name: 'HashPay',
+  description: 'Payment-Gated Services on Hedera',
+  url: 'https://hashpay.up.railway.app',
+  icons: ['https://avatars.githubusercontent.com/u/116641441']
+};
+
+let connector = null;
+let session = null;
+let connectedAccount = null;
+let currentService = null;
+let allServices = [];
+let chatHistory = [];
+
+const icons = {'weather-api':'🌤️','market-data':'📊','ai-reports':'🤖','hcs-logger':'📝','token-creator':'🪙','nft-minter':'🖼️','defi-rates':'💹'};
+const descs = {'weather-api':'Get premium weather data','market-data':'Live market data feed','ai-reports':'AI-generated research reports','hcs-logger':'Store messages permanently on Hedera','token-creator':'Create your own HTS token','nft-minter':'Mint an NFT on Hedera','defi-rates':'Live DeFi rates from Hedera ecosystem'};
+
+async function initConnector() {
+  connector = new DAppConnector(APP_METADATA, 'testnet', PROJECT_ID, Object.values(HederaJsonRpcMethod), [], [HederaChainId.Testnet]);
+  await connector.init({ logger: 'error' });
+}
+
+window.connectWallet = async function() {
+  try {
+    if (!connector) await initConnector();
+    session = await connector.openModal();
+    const accountIds = session.namespaces?.hedera?.accounts?.map(a => a.split(':').pop());
+    if (accountIds && accountIds.length > 0) {
+      connectedAccount = accountIds[0];
+      const btn = document.getElementById('walletBtn');
+      btn.className = 'wallet-connected';
+      btn.textContent = '✅ ' + connectedAccount;
+      showNotify('Connected: ' + connectedAccount);
+      renderServices();
+    }
+  } catch(e) {
+    showNotify('Connection failed: ' + e.message);
+  }
+}
+
+window.selectService = function(id) {
+  if (!connectedAccount) { showNotify('Connect wallet first'); return; }
+  currentService = allServices.find(s => s.id === id);
+  document.getElementById('pay-service-name').textContent = currentService.name;
+  document.getElementById('pay-service-desc').textContent = descs[id] || '';
+  document.getElementById('pay-amount').textContent = currentService.costNum;
+  document.getElementById('pay-amount-2').textContent = currentService.costNum + ' HBAR';
+  document.getElementById('pay-receiver').textContent = '0.0.9100611';
+  document.getElementById('payStatus').style.display = 'none';
+  showScreen('paymentScreen');
+}
+
+window.signAndPay = async function() {
+  if (!connector || !session || !currentService) return;
+  const status = document.getElementById('payStatus');
+  status.className = 'status-msg info';
+  status.style.display = 'block';
+  status.textContent = '⏳ Requesting payment signature from your wallet...';
+  try {
+    const tx = new TransferTransaction()
+      .addHbarTransfer(AccountId.fromString(connectedAccount), new Hbar(-currentService.costNum))
+      .addHbarTransfer(AccountId.fromString('0.0.9100611'), new Hbar(currentService.costNum));
+    const result = await connector.signAndExecuteTransaction({ transaction: tx });
+    if (result) {
+      status.className = 'status-msg success';
+      status.textContent = '✅ Transaction signed! Verifying on-chain...';
+      setTimeout(() => verifyPayment(), 3000);
+    }
+  } catch(e) {
+    status.className = 'status-msg error';
+    status.textContent = 'Transaction failed: ' + e.message;
+  }
+}
+
+window.verifyPayment = async function() {
+  const status = document.getElementById('payStatus');
+  status.className = 'status-msg info';
+  status.style.display = 'block';
+  status.textContent = '🔍 Checking blockchain for your payment...';
+  try {
+    const res = await fetch('/verify-payment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ senderAccountId: connectedAccount, serviceId: currentService.id })
+    });
+    const data = await res.json();
+    if (data.verified) {
+      status.className = 'status-msg success';
+      status.textContent = '✅ Payment confirmed! Opening your service...';
+      setTimeout(() => openChat(), 1500);
+    } else {
+      status.className = 'status-msg error';
+      status.textContent = data.message;
+    }
+  } catch(e) {
+    status.className = 'status-msg error';
+    status.textContent = 'Error: ' + e.message;
+  }
+}
+
+window.openChat = function() {
+  chatHistory = [];
+  document.getElementById('chat-icon').textContent = icons[currentService.id] || '⚙️';
+  document.getElementById('chat-service-name').textContent = currentService.name;
+  document.getElementById('chat-account').textContent = connectedAccount;
+  const msgs = document.getElementById('chatMessages');
+  msgs.innerHTML = '';
+  addMessage('system', '✅ Payment verified! You now have access to ' + currentService.name + '. How can I help you?');
+  showScreen('chatScreen');
+}
+
+window.sendMessage = async function() {
+  const input = document.getElementById('chatInput');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  addMessage('user', text);
+  const typing = document.createElement('div');
+  typing.className = 'msg agent';
+  typing.id = 'typing';
+  typing.textContent = '...';
+  document.getElementById('chatMessages').appendChild(typing);
+  try {
+    const res = await fetch('/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: chatHistory, serviceId: currentService.id, accountId: connectedAccount })
+    });
+    const data = await res.json();
+    document.getElementById('typing')?.remove();
+    addMessage('agent', data.reply || data.error);
+  } catch(e) {
+    document.getElementById('typing')?.remove();
+    addMessage('agent', 'Error: ' + e.message);
+  }
+}
+
+function addMessage(role, content) {
+  const msgs = document.getElementById('chatMessages');
+  const div = document.createElement('div');
+  div.className = 'msg ' + role;
+  div.textContent = content;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+  if (role !== 'system') chatHistory.push({ role: role === 'user' ? 'user' : 'assistant', content });
+}
+
+window.handleKey = function(e) { if (e.key === 'Enter') window.sendMessage(); }
+window.showHome = function() { showScreen('homeScreen'); }
+window.showNotify = showNotify;
+
+function showNotify(msg) {
+  const el = document.getElementById('notify');
+  el.textContent = msg;
+  el.style.display = 'block';
+  setTimeout(() => el.style.display = 'none', 3000);
+}
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function renderServices() {
+  const c = document.getElementById('servicesGrid');
+  c.innerHTML = '';
+  allServices.forEach(s => {
+    const locked = !connectedAccount;
+    c.innerHTML += `<div class="card${locked?' locked':''}">
+      <div class="card-top"><span class="card-icon">${icons[s.id]||'⚙️'}</span><span class="card-cost">${s.cost}</span></div>
+      <h3>${s.name}</h3><p>${descs[s.id]||''}</p>
+      <button class="card-btn" ${locked?'disabled':''} onclick="selectService('${s.id}')">${locked?'🔒 Connect Wallet':'Pay & Access'}</button>
+    </div>`;
+  });
+}
+
+fetch('/services').then(r => r.json()).then(services => {
+  allServices = services;
+  renderServices();
+});
+
+initConnector().catch(console.error);
+</script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:#0a0a0f;color:#fff;font-family:'Segoe UI',sans-serif;min-height:100vh}
@@ -13,30 +201,19 @@ header{padding:18px 24px;border-bottom:1px solid #1a1a2e;display:flex;align-item
 .logo span{background:#1a1a2e;color:#8b5cf6;font-size:10px;padding:3px 8px;border-radius:20px;border:1px solid #8b5cf6}
 .wallet-btn{background:linear-gradient(90deg,#8b5cf6,#06b6d4);border:none;color:#fff;padding:9px 18px;border-radius:10px;font-size:13px;cursor:pointer;font-weight:600}
 .wallet-connected{background:#1a1a2e;border:1px solid #4ade80;color:#4ade80;padding:9px 18px;border-radius:10px;font-size:12px;cursor:pointer}
-
-/* SCREENS */
-.screen{display:none}
-.screen.active{display:block}
-
-/* HOME */
+.screen{display:none}.screen.active{display:block}
 .hero{text-align:center;padding:50px 20px 30px}
 .hero h2{font-size:30px;font-weight:700;margin-bottom:10px}
-.hero p{color:#888;font-size:14px;max-width:420px;margin:0 auto 30px}
-.connect-prompt{background:#111120;border:1px solid #2a2a4e;border-radius:16px;padding:24px;max-width:380px;margin:0 auto;text-align:center}
-.connect-prompt p{color:#666;font-size:13px;margin-bottom:16px}
+.hero p{color:#888;font-size:14px;max-width:420px;margin:0 auto}
 .services-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;padding:20px 24px 60px;max-width:1000px;margin:0 auto}
-.card{background:#111120;border:1px solid #1a1a2e;border-radius:14px;padding:20px;transition:all 0.2s;cursor:pointer}
+.card{background:#111120;border:1px solid #1a1a2e;border-radius:14px;padding:20px;transition:all 0.2s}
 .card:hover{border-color:#8b5cf6;transform:translateY(-2px)}
-.card.locked{opacity:0.5;cursor:not-allowed}
+.card.locked{opacity:0.6}
 .card-top{display:flex;justify-content:space-between;margin-bottom:8px}
-.card-icon{font-size:24px}
-.card-cost{background:#1a1a2e;color:#06b6d4;font-size:11px;padding:3px 8px;border-radius:20px}
-.card h3{font-size:14px;margin-bottom:4px}
-.card p{color:#555;font-size:12px;margin-bottom:12px}
+.card-icon{font-size:24px}.card-cost{background:#1a1a2e;color:#06b6d4;font-size:11px;padding:3px 8px;border-radius:20px}
+.card h3{font-size:14px;margin-bottom:4px}.card p{color:#555;font-size:12px;margin-bottom:12px}
 .card-btn{width:100%;background:linear-gradient(90deg,#8b5cf6,#06b6d4);border:none;color:#fff;padding:9px;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600}
 .card-btn:disabled{background:#2a2a2a;color:#444;cursor:not-allowed}
-
-/* PAYMENT SCREEN */
 .payment-screen{max-width:480px;margin:40px auto;padding:0 20px}
 .back-btn{background:none;border:none;color:#8b5cf6;cursor:pointer;font-size:13px;margin-bottom:20px;display:flex;align-items:center;gap:6px}
 .payment-card{background:#111120;border:1px solid #2a2a4e;border-radius:20px;padding:28px}
@@ -45,25 +222,17 @@ header{padding:18px 24px;border-bottom:1px solid #1a1a2e;display:flex;align-item
 .cost-display{background:#0d0d1f;border:1px solid #2a2a4e;border-radius:12px;padding:16px;text-align:center;margin-bottom:20px}
 .cost-display .amount{font-size:32px;font-weight:700;background:linear-gradient(90deg,#8b5cf6,#06b6d4);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 .cost-display .label{color:#666;font-size:12px;margin-top:4px}
-.steps{margin-bottom:20px}
-.step-item{display:flex;align-items:flex-start;gap:12px;margin-bottom:12px}
-.step-num{background:#8b5cf6;color:#fff;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;margin-top:1px}
-.step-text{font-size:13px;color:#888}
-.step-text strong{color:#fff}
-.receiver{background:#1a1a2e;border-radius:8px;padding:8px 12px;font-size:11px;color:#06b6d4;margin-bottom:16px;word-break:break-all}
+.receiver-box{background:#1a1a2e;border-radius:8px;padding:10px 14px;font-size:12px;color:#06b6d4;margin-bottom:16px;word-break:break-all;text-align:center}
 .pay-btn{width:100%;background:linear-gradient(90deg,#8b5cf6,#06b6d4);border:none;color:#fff;padding:14px;border-radius:12px;font-size:15px;cursor:pointer;font-weight:700;margin-bottom:10px}
 .verify-btn{width:100%;background:#1a1a2e;border:1px solid #8b5cf6;color:#8b5cf6;padding:12px;border-radius:12px;font-size:13px;cursor:pointer;font-weight:600}
 .status-msg{text-align:center;font-size:13px;margin-top:12px;padding:10px;border-radius:8px;display:none}
 .status-msg.success{background:#0d1f0d;color:#4ade80;border:1px solid #1a4a1a}
 .status-msg.error{background:#1f0d0d;color:#f87171;border:1px solid #4a1a1a}
 .status-msg.info{background:#0d0d1f;color:#8b5cf6;border:1px solid #2a2a4e}
-
-/* CHAT SCREEN */
 .chat-screen{display:flex;flex-direction:column;height:calc(100vh - 61px)}
 .chat-header{padding:16px 20px;border-bottom:1px solid #1a1a2e;display:flex;align-items:center;gap:12px}
 .chat-service-icon{font-size:24px}
-.chat-service-info h3{font-size:15px}
-.chat-service-info p{color:#666;font-size:12px}
+.chat-service-info h3{font-size:15px}.chat-service-info p{color:#666;font-size:12px}
 .chat-paid-badge{background:#0d1f0d;color:#4ade80;border:1px solid #1a4a1a;font-size:11px;padding:3px 10px;border-radius:20px;margin-left:auto}
 .chat-messages{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:12px}
 .msg{max-width:80%;padding:12px 16px;border-radius:16px;font-size:14px;line-height:1.5}
@@ -73,21 +242,16 @@ header{padding:18px 24px;border-bottom:1px solid #1a1a2e;display:flex;align-item
 .chat-input-area{padding:16px 20px;border-top:1px solid #1a1a2e;display:flex;gap:10px}
 .chat-input{flex:1;background:#1a1a2e;border:1px solid #2a2a4e;color:#fff;padding:12px 16px;border-radius:12px;font-size:14px;outline:none}
 .chat-input:focus{border-color:#8b5cf6}
-.send-btn{background:linear-gradient(90deg,#8b5cf6,#06b6d4);border:none;color:#fff;padding:12px 20px;border-radius:12px;cursor:pointer;font-weight:600;font-size:14px}
-
-.notify{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1a2e;border:1px solid #8b5cf6;color:#fff;padding:10px 20px;border-radius:12px;font-size:13px;z-index:200;display:none;white-space:nowrap}
+.send-btn{background:linear-gradient(90deg,#8b5cf6,#06b6d4);border:none;color:#fff;padding:12px 20px;border-radius:12px;cursor:pointer;font-weight:600}
+.notify{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1a2e;border:1px solid #8b5cf6;color:#fff;padding:10px 20px;border-radius:12px;font-size:13px;z-index:200;display:none}
 </style>
 </head>
 <body>
 <header>
-  <div class="logo">
-    <h1>⚡ HashPay</h1>
-    <span>Hedera Testnet</span>
-  </div>
+  <div class="logo"><h1>⚡ HashPay</h1><span>Hedera Testnet</span></div>
   <button class="wallet-btn" id="walletBtn" onclick="connectWallet()">Connect Wallet</button>
 </header>
 
-<!-- HOME SCREEN -->
 <div class="screen active" id="homeScreen">
   <div class="hero">
     <h2>Payment-Gated Services</h2>
@@ -96,10 +260,9 @@ header{padding:18px 24px;border-bottom:1px solid #1a1a2e;display:flex;align-item
   <div class="services-grid" id="servicesGrid"></div>
 </div>
 
-<!-- PAYMENT SCREEN -->
 <div class="screen" id="paymentScreen">
   <div class="payment-screen">
-    <button class="back-btn" onclick="showHome()">← Back to services</button>
+    <button class="back-btn" onclick="showHome()">← Back</button>
     <div class="payment-card">
       <h2 id="pay-service-name"></h2>
       <p class="desc" id="pay-service-desc"></p>
@@ -107,29 +270,15 @@ header{padding:18px 24px;border-bottom:1px solid #1a1a2e;display:flex;align-item
         <div class="amount" id="pay-amount"></div>
         <div class="label">HBAR required</div>
       </div>
-      <div class="steps">
-        <div class="step-item">
-          <div class="step-num">1</div>
-          <div class="step-text">Send exactly <strong id="pay-amount-2"></strong> HBAR to HashPay's account:</div>
-        </div>
-        <div class="receiver" id="pay-receiver"></div>
-        <div class="step-item">
-          <div class="step-num">2</div>
-          <div class="step-text">Use <strong>HashPack, Kabila</strong> or any Hedera wallet to send the payment.</div>
-        </div>
-        <div class="step-item">
-          <div class="step-num">3</div>
-          <div class="step-text">Click <strong>Verify Payment</strong> — we'll check the blockchain and unlock your service.</div>
-        </div>
-      </div>
-      <button class="pay-btn" onclick="openHashPack()">Open HashPack Wallet</button>
-      <button class="verify-btn" onclick="verifyPayment()">✅ I've paid — Verify Payment</button>
+      <p style="color:#888;font-size:13px;margin-bottom:8px">Send to HashPay account:</p>
+      <div class="receiver-box" id="pay-receiver"></div>
+      <button class="pay-btn" onclick="signAndPay()">⚡ Sign & Pay with HashPack</button>
+      <button class="verify-btn" onclick="verifyPayment()">✅ Already paid — Verify</button>
       <div class="status-msg" id="payStatus"></div>
     </div>
   </div>
 </div>
 
-<!-- CHAT SCREEN -->
 <div class="screen" id="chatScreen">
   <div class="chat-screen">
     <div class="chat-header">
@@ -149,145 +298,5 @@ header{padding:18px 24px;border-bottom:1px solid #1a1a2e;display:flex;align-item
 </div>
 
 <div class="notify" id="notify"></div>
-
-<script>
-const icons={'weather-api':'🌤️','market-data':'📊','ai-reports':'🤖','hcs-logger':'📝','token-creator':'🪙','nft-minter':'🖼️','defi-rates':'💹'};
-const descs={'weather-api':'Get premium weather data','market-data':'Live market data feed','ai-reports':'AI-generated research reports','hcs-logger':'Store messages permanently on Hedera','token-creator':'Create your own HTS token','nft-minter':'Mint an NFT on Hedera','defi-rates':'Live DeFi rates from Hedera ecosystem'};
-
-let connectedAccount=null;
-let currentService=null;
-let allServices=[];
-let chatHistory=[];
-
-function showNotify(msg){
-  const el=document.getElementById('notify');
-  el.textContent=msg;el.style.display='block';
-  setTimeout(()=>el.style.display='none',3000);
-}
-
-function showScreen(id){
-  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
-}
-
-function showHome(){showScreen('homeScreen');}
-
-async function connectWallet(){
-  const accountId=prompt('Enter your Hedera testnet account ID:\n(e.g. 0.0.12345)');
-  if(accountId&&accountId.match(/^0\.0\.\d+$/)){
-    connectedAccount=accountId;
-    const btn=document.getElementById('walletBtn');
-    btn.className='wallet-connected';
-    btn.textContent='✅ '+accountId;
-    showNotify('Connected: '+accountId);
-    renderServices();
-  } else if(accountId){
-    showNotify('Invalid format. Use 0.0.xxxxx');
-  }
-}
-
-function renderServices(){
-  const c=document.getElementById('servicesGrid');
-  c.innerHTML='';
-  allServices.forEach(s=>{
-    const locked=!connectedAccount;
-    c.innerHTML+=`<div class="card${locked?' locked':''}" onclick="${locked?'showNotify(\'Connect wallet first\')':'selectService(\''+s.id+'\')'}">
-      <div class="card-top"><span class="card-icon">${icons[s.id]||'⚙️'}</span><span class="card-cost">${s.cost}</span></div>
-      <h3>${s.name}</h3><p>${descs[s.id]||''}</p>
-      <button class="card-btn" ${locked?'disabled':''} onclick="event.stopPropagation();${locked?'showNotify(\'Connect wallet first\')':'selectService(\''+s.id+'\')'}">${locked?'🔒 Connect Wallet':'Pay & Access'}</button>
-    </div>`;
-  });
-}
-
-fetch('/services').then(r=>r.json()).then(services=>{
-  allServices=services;
-  renderServices();
-});
-
-function selectService(id){
-  if(!connectedAccount){showNotify('Connect wallet first');return;}
-  currentService=allServices.find(s=>s.id===id);
-  document.getElementById('pay-service-name').textContent=currentService.name;
-  document.getElementById('pay-service-desc').textContent=descs[id]||'';
-  document.getElementById('pay-amount').textContent=currentService.costNum;
-  document.getElementById('pay-amount-2').textContent=currentService.costNum+' HBAR';
-  document.getElementById('pay-receiver').textContent='Account: '+('0.0.9100611');
-  document.getElementById('payStatus').style.display='none';
-  showScreen('paymentScreen');
-}
-
-function openHashPack(){
-  window.open('https://wallet.hashpack.app','_blank');
-}
-
-async function verifyPayment(){
-  if(!connectedAccount||!currentService)return;
-  const status=document.getElementById('payStatus');
-  status.className='status-msg info';
-  status.style.display='block';
-  status.textContent='🔍 Checking blockchain for your payment...';
-  try{
-    const res=await fetch('/verify-payment',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({senderAccountId:connectedAccount,serviceId:currentService.id})});
-    const data=await res.json();
-    if(data.verified){
-      status.className='status-msg success';
-      status.textContent='✅ Payment confirmed! Opening your service...';
-      setTimeout(()=>openChat(),1500);
-    } else {
-      status.className='status-msg error';
-      status.textContent=data.message;
-    }
-  }catch(e){
-    status.className='status-msg error';
-    status.textContent='Error: '+e.message;
-  }
-}
-
-function openChat(){
-  chatHistory=[];
-  document.getElementById('chat-icon').textContent=icons[currentService.id]||'⚙️';
-  document.getElementById('chat-service-name').textContent=currentService.name;
-  document.getElementById('chat-account').textContent=connectedAccount;
-  const msgs=document.getElementById('chatMessages');
-  msgs.innerHTML='';
-  addMessage('system','✅ Payment verified! You now have access to '+currentService.name+'. How can I help you?');
-  showScreen('chatScreen');
-}
-
-function addMessage(role,content){
-  const msgs=document.getElementById('chatMessages');
-  const div=document.createElement('div');
-  div.className='msg '+role;
-  div.textContent=content;
-  msgs.appendChild(div);
-  msgs.scrollTop=msgs.scrollHeight;
-  if(role!=='system') chatHistory.push({role:role==='user'?'user':'assistant',content});
-}
-
-function handleKey(e){if(e.key==='Enter')sendMessage();}
-
-async function sendMessage(){
-  const input=document.getElementById('chatInput');
-  const text=input.value.trim();
-  if(!text)return;
-  input.value='';
-  addMessage('user',text);
-  const typing=document.createElement('div');
-  typing.className='msg agent';
-  typing.id='typing';
-  typing.textContent='...';
-  document.getElementById('chatMessages').appendChild(typing);
-
-  try{
-    const res=await fetch('/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:chatHistory,serviceId:currentService.id,accountId:connectedAccount})});
-    const data=await res.json();
-    document.getElementById('typing')?.remove();
-    addMessage('agent',data.reply||data.error);
-  }catch(e){
-    document.getElementById('typing')?.remove();
-    addMessage('agent','Error: '+e.message);
-  }
-}
-</script>
 </body>
 </html>
