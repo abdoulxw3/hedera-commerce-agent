@@ -145,7 +145,7 @@ function closeWalletModal(){document.getElementById('wcModal').classList.remove(
 
 function connectHashPack(){
   const wc=`wc:${Date.now()}@2?relay-protocol=irn&symKey=placeholder&projectId=1eb25284f2c2cc52088780c04246372d`;
-  window.open(`https://wallet.hashpack.app/wc?uri=${encodeURIComponent('https://hashpay.up.railway.app')}`, '_blank');
+  const a=document.createElement("a"); a.href="hedera://wc"; a.click(); setTimeout(()=>window.open("https://wallet.hashpack.app","_blank"),1500);
   showNotify('HashPack opened — after connecting, enter your account ID');
   showManualInput();
 }
@@ -172,7 +172,7 @@ function confirmManual(){
 function openHashPack(){
   const amount=currentService.costNum;
   const receiver='0.0.9100611';
-  window.open(`https://wallet.hashpack.app/transfer?to=${receiver}&amount=${amount}&network=testnet`,'_blank');
+  const deeplink=`hedera://transfer?to=${receiver}&amount=${amount}&network=testnet`; const fallback=`https://wallet.hashpack.app/transfer?to=${receiver}&amount=${amount}&network=testnet`; const a=document.createElement("a"); a.href=deeplink; a.click(); setTimeout(()=>window.open(fallback,"_blank"),1500);
   showNotify('Complete payment in HashPack, then click Verify');
 }
 
