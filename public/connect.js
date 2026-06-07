@@ -1,6 +1,5 @@
 const PROJECT_ID = '1eb25284f2c2cc52088780c04246372d';
-let wcProvider = null;
-let wcSession = null;
+window.wcProvider = null;
 
 window.connectWallet = async function() {
   document.getElementById('wcModal').classList.add('open');
@@ -8,8 +7,8 @@ window.connectWallet = async function() {
 
   try {
     const { UniversalProvider } = await import('https://esm.sh/@walletconnect/universal-provider@2.17.0');
-    
-    wcProvider = await UniversalProvider.init({
+
+    window.wcProvider = await UniversalProvider.init({
       projectId: PROJECT_ID,
       metadata: {
         name: 'HashPay',
@@ -19,9 +18,9 @@ window.connectWallet = async function() {
       }
     });
 
-    wcProvider.on('display_uri', (uri) => {
+    window.wcProvider.on('display_uri', (uri) => {
       document.getElementById('qrContainer').innerHTML = `
-        <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(uri)}" 
+        <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(uri)}"
              style="border-radius:12px;width:200px;height:200px"/>
         <p style="color:#666;font-size:11px;margin-top:8px">Scan with HashPack</p>`;
       const btn = document.getElementById('deepLinkBtn');
@@ -29,7 +28,7 @@ window.connectWallet = async function() {
       btn.style.display = 'block';
     });
 
-    wcSession = await wcProvider.connect({
+    const session = await window.wcProvider.connect({
       optionalNamespaces: {
         hedera: {
           methods: ['hedera_signAndExecuteTransaction', 'hedera_getNodeAddresses'],
@@ -39,40 +38,45 @@ window.connectWallet = async function() {
       }
     });
 
-    const accounts = wcSession?.namespaces?.hedera?.accounts;
+    const accounts = session?.namespaces?.hedera?.accounts;
     if (accounts && accounts.length > 0) {
       const accountId = accounts[0].split(':').pop();
       window.setConnectedAccount(accountId);
-      document.getElementById('wcModal').classList.remove('open');
     }
 
   } catch(e) {
-    document.getElementById('qrContainer').innerHTML = 
+    document.getElementById('qrContainer').innerHTML =
       `<p style="color:#f87171;font-size:13px">Error: ${e.message}</p>`;
   }
 }
 
-window.signAndPayWithWallet = async function(serviceId, costNum) {
-  if (!wcProvider || !wcSession) {
+window.signAndPay = async function(serviceId, costNum, receiverAccount) {
+  if (!window.wcProvider) {
     window.showNotify('Please connect wallet first');
     return false;
   }
 
   try {
-    const { Transaction, TransferTransaction, Hbar, AccountId } = 
+    const { TransferTransaction, Hbar, AccountId } =
       await import('https://esm.sh/@hashgraph/sdk@2.50.0');
 
+    const senderId = AccountId.fromString(window.connectedAccount);
+    const receiverId = AccountId.fromString(receiverAccount);
+
     const tx = new TransferTransaction()
-      .addHbarTransfer(AccountId.fromString(window.connectedAccount), new Hbar(-costNum))
-      .addHbarTransfer(AccountId.fromString('0.0.9100611'), new Hbar(costNum))
-      .freezeWith(null);
+      .addHbarTransfer(senderEntry, Hbar.fromTinybars(-Math.floor(costNum * 100_000_000)))
+      .addHbarTransfer(receiverId, Hbar.fromTinybars(Math.floor(costNum * 100_000_000)));
 
     const txBytes = Buffer.from(tx.toBytes()).toString('base64');
 
-    const result = await wcProvider.request({
-      method: 'hedera_signAndExecuteTransaction',
-      params: { transaction: txBytes }
-    }, 'hedera:testnet');
+    const result = await window.wcProvider.request({
+      topic: window.wcProvider.session?.topic,
+      chainId: 'hedera:testnet',
+      request: {
+        method: 'hedera_signAndExecuteTransaction',
+        params: { transactionList: txBytes }
+      }
+    });
 
     return result;
   } catch(e) {
