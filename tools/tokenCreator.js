@@ -3,13 +3,18 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const client = Client.forTestnet().setOperator(
-  process.env.ACCOUNT_ID,
-  PrivateKey.fromStringECDSA(process.env.PRIVATE_KEY?.replace('0x', ''))
-);
+function getClient() {
+  const key = process.env.PRIVATE_KEY?.replace('0x', '');
+  return Client.forTestnet().setOperator(
+    process.env.ACCOUNT_ID,
+    PrivateKey.fromStringECDSA(key)
+  );
+}
 
 export async function createToken(name, symbol, supply) {
   try {
+    const client = getClient();
+    const privateKey = PrivateKey.fromStringECDSA(process.env.PRIVATE_KEY?.replace('0x', ''));
     const tokenTx = await new TokenCreateTransaction()
       .setTokenName(name || 'CommerceToken')
       .setTokenSymbol(symbol || 'CMT')
@@ -17,16 +22,13 @@ export async function createToken(name, symbol, supply) {
       .setDecimals(2)
       .setInitialSupply(supply || 1000)
       .setTreasuryAccountId(process.env.ACCOUNT_ID)
-      .setAdminKey(PrivateKey.fromStringECDSA(process.env.PRIVATE_KEY?.replace('0x', '')))
+      .setAdminKey(privateKey)
       .execute(client);
-
     const receipt = await tokenTx.getReceipt(client);
     const tokenId = receipt.tokenId;
-
     return {
       success: true,
-      tokenId: tokenId.toString(),
-      message: `✅ Token created on Hedera!\nToken ID: ${tokenId}\nName: ${name}\nSymbol: ${symbol}\nSupply: ${supply}\nView on HashScan: https://hashscan.io/testnet/token/${tokenId}`
+      message: `✅ Token created!\nToken ID: ${tokenId}\nName: ${name}\nSymbol: ${symbol}\nView: https://hashscan.io/testnet/token/${tokenId}`
     };
   } catch (error) {
     return { success: false, message: `Token creation failed: ${error.message}` };

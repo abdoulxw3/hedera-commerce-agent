@@ -3,14 +3,18 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const client = Client.forTestnet().setOperator(
-  process.env.ACCOUNT_ID,
-  PrivateKey.fromStringECDSA(process.env.PRIVATE_KEY?.replace('0x', ''))
-);
+function getClient() {
+  const key = process.env.PRIVATE_KEY?.replace('0x', '');
+  return Client.forTestnet().setOperator(
+    process.env.ACCOUNT_ID,
+    PrivateKey.fromStringECDSA(key)
+  );
+}
 
 export async function mintNFT(name, symbol) {
   try {
-    // Create NFT collection
+    const client = getClient();
+    const privateKey = PrivateKey.fromStringECDSA(process.env.PRIVATE_KEY?.replace('0x', ''));
     const nftTx = await new TokenCreateTransaction()
       .setTokenName(name || 'CommerceNFT')
       .setTokenSymbol(symbol || 'CNFT')
@@ -18,25 +22,19 @@ export async function mintNFT(name, symbol) {
       .setDecimals(0)
       .setInitialSupply(0)
       .setTreasuryAccountId(process.env.ACCOUNT_ID)
-      .setAdminKey(PrivateKey.fromStringECDSA(process.env.PRIVATE_KEY?.replace('0x', '')))
-      .setSupplyKey(PrivateKey.fromStringECDSA(process.env.PRIVATE_KEY?.replace('0x', '')))
+      .setAdminKey(privateKey)
+      .setSupplyKey(privateKey)
       .execute(client);
-
     const nftReceipt = await nftTx.getReceipt(client);
     const tokenId = nftReceipt.tokenId;
-
-    // Mint 1 NFT
     const mintTx = await new TokenMintTransaction()
       .setTokenId(tokenId)
-      .addMetadata(Buffer.from('Hedera Commerce NFT #1'))
+      .addMetadata(Buffer.from('HashPay NFT #1'))
       .execute(client);
-
     await mintTx.getReceipt(client);
-
     return {
       success: true,
-      tokenId: tokenId.toString(),
-      message: `✅ NFT minted on Hedera!\nCollection ID: ${tokenId}\nNFT: #1\nName: ${name}\nView on HashScan: https://hashscan.io/testnet/token/${tokenId}`
+      message: `✅ NFT minted!\nCollection ID: ${tokenId}\nNFT: #1\nView: https://hashscan.io/testnet/token/${tokenId}`
     };
   } catch (error) {
     return { success: false, message: `NFT minting failed: ${error.message}` };
