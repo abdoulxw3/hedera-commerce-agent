@@ -70,16 +70,9 @@ app.post('/chat', async (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🛒 HashPay running on port ${PORT}`));
-
-import UniversalProvider from '@walletconnect/universal-provider';
-
-let pairingUri = null;
-let providerInstance = null;
-
 app.get('/wc-uri', async (req, res) => {
   try {
+    const { default: UniversalProvider } = await import('@walletconnect/universal-provider');
     const provider = await UniversalProvider.init({
       projectId: '1eb25284f2c2cc52088780c04246372d',
       metadata: {
@@ -90,24 +83,29 @@ app.get('/wc-uri', async (req, res) => {
       }
     });
 
-    providerInstance = provider;
+    let uri = null;
+    provider.on('display_uri', (u) => { uri = u; });
 
-    provider.on('display_uri', (uri) => {
-      pairingUri = uri;
-    });
-
-    await provider.connect({
+    provider.connect({
       optionalNamespaces: {
         hedera: {
-          methods: ['hedera_signAndExecuteTransaction', 'hedera_getNodeAddresses'],
+          methods: ['hedera_signAndExecuteTransaction'],
           chains: ['hedera:testnet'],
-          events: ['chainChanged', 'accountsChanged']
+          events: []
         }
       }
-    });
+    }).catch(() => {});
 
-    res.json({ uri: pairingUri });
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    if (uri) {
+      res.json({ uri });
+    } else {
+      res.status(500).json({ error: 'Failed to generate URI' });
+    }
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
 });
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`🛒 HashPay running on port ${PORT}`));
