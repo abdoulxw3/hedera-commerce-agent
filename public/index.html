@@ -175,11 +175,20 @@ function selectService(id){
   showScreen('paymentScreen');
 }
 
-function payWithWallet(){
+async function payWithWallet(){
   if(!currentService)return;
-  const uri=`hashpack://transfer?to=0.0.9100611&amount=${currentService.costNum}&network=testnet&memo=HashPay-${currentService.id}`;
-  window.location.href=uri;
-  setTimeout(()=>showNotify('Complete payment in HashPack, then click Verify'),500);
+  const status=document.getElementById('payStatus');
+  status.className='status-msg info';
+  status.style.display='block';
+  status.textContent='⏳ Requesting wallet signature...';
+  const result = await window.signAndPay(currentService.costNum);
+  if(result){
+    status.className='status-msg success';
+    status.textContent='✅ Signed! Verifying on-chain...';
+    setTimeout(()=>verifyPayment(),4000);
+  } else {
+    status.style.display='none';
+  }
 }
 
 async function verifyPayment(){
