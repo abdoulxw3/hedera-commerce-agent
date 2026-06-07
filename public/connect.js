@@ -6,34 +6,42 @@ window.connectWallet = async function() {
   document.getElementById('qrContainer').innerHTML = '<p style="color:#888;font-size:13px">Initializing...</p>';
 
   try {
-    const { DAppConnector, HederaJsonRpcMethod, HederaSessionEvent, HederaChainId, LedgerId } =
-      await import('https://esm.sh/@hashgraph/hedera-wallet-connect@1.3.5');
+    // Use UniversalProvider which works in browsers
+    const { default: UniversalProvider } = await import('https://esm.sh/@walletconnect/universal-provider@2.17.0?bundle');
 
-    window.dAppConnector = new DAppConnector(
-      {
+    const provider = await UniversalProvider.init({
+      projectId: PROJECT_ID,
+      metadata: {
         name: 'HashPay',
         description: 'Payment-Gated Services on Hedera',
         url: 'https://hashpay.up.railway.app',
         icons: ['https://avatars.githubusercontent.com/u/116641441']
-      },
-      LedgerId.TESTNET,
-      PROJECT_ID,
-      Object.values(HederaJsonRpcMethod),
-      [HederaSessionEvent.ChainChanged, HederaSessionEvent.AccountsChanged],
-      [HederaChainId.Testnet]
-    );
-
-    await window.dAppConnector.init({ logger: 'error' });
-
-    window.dAppConnector.onSessionIframeCreated = (session) => {
-      const accounts = session?.namespaces?.hedera?.accounts;
-      if (accounts?.length > 0) {
-        const accountId = accounts[0].split(':').pop();
-        window.setConnectedAccount(accountId);
       }
-    };
+    });
 
-    const session = await window.dAppConnector.openModal();
+    window.dAppConnector = provider;
+
+    provider.on('display_uri', (uri) => {
+      document.getElementById('qrContainer').innerHTML = `
+        <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(uri)}"
+             style="border-radius:12px;width:200px;height:200px"/>
+        <p style="color:#666;font-size:11px;margin-top:8px">Scan with HashPack</p>`;
+      const btn = document.getElementById('deepLinkBtn');
+      btn.href = uri;
+      btn.style.display = 'block';
+    });
+
+    const session = await provider.connect({
+      optionalNamespaces: {
+        hedera: {
+          methods: ['hedera_signAndExecuteTransaction'],
+          chains: ['hedera:testnet'],
+          events: []
+        }
+      }
+    });
+
+    window.wcSession = session;
     const accounts = session?.namespaces?.hedera?.accounts;
     if (accounts?.length > 0) {
       const accountId = accounts[0].split(':').pop();
@@ -47,29 +55,36 @@ window.connectWallet = async function() {
 }
 
 window.signAndPay = async function(costNum) {
-  if (!window.dAppConnector || !window.connectedAccount) {
+  if (!window.dAppConnector || !window.wcSession) {
     window.showNotify('Please connect wallet first');
     return false;
   }
 
   try {
-    const { TransferTransaction, Hbar, AccountId } =
-      await import('https://esm.sh/@hashgraph/sdk@2.50.0');
+    // Get transaction bytes from backend
+    const res = await fetch('/build-transfer', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        senderAccountId: window.connectedAccount,
+        amount: costNum
+      })
+    });
+    const { txBytes } = await res.json();
 
-    const sender = AccountId.fromString(window.connectedAccount);
-    const receiver = AccountId.fromString('0.0.9100611');
-    const amount = new Hbar(costNum);
+    // Send to wallet for signing
+    const result = await window.dAppConnector.request({
+      topic: window.wcSession.topic,
+      chainId: 'hedera:testnet',
+      request: {
+        method: 'hedera_signAndExecuteTransaction',
+        params: { transactionList: txBytes }
+      }
+    });
 
-    const tx = new TransferTransaction()
-      .addHbarTransfer(sender, amount.negated())
-      .addHbarTransfer(receiver, amount);
-
-    const signer = window.dAppConnector.getSigner(sender);
-    const result = await signer.signAndExecuteTransaction(tx);
     return result;
-
   } catch(e) {
-    window.showNotify('Transaction failed: ' + e.message);
+    window.showNotify('Error: ' + e.message);
     return false;
   }
 }
