@@ -4,7 +4,8 @@ import { logToHCS } from './tools/hcsLogger.js';
 import { createToken } from './tools/tokenCreator.js';
 import { mintNFT } from './tools/nftMinter.js';
 import { getDefiRates } from './tools/defiRates.js';
-import { verifyPayment } from './tools/verifyPayment.js';
+import { verifyTransaction } from './tools/verifyTransaction.js';
+import { ChatGroq } from '@langchain/groq';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import dotenv from 'dotenv';
@@ -16,20 +17,34 @@ const app = express();
 app.use(express.json());
 app.use(express.static(join(__dirname, 'public')));
 
+const llm = new ChatGroq({
+  model: 'llama-3.1-8b-instant',
+  apiKey: process.env.GROQ_API_KEY,
+});
+
 app.get('/services', (req, res) => {
   const serviceList = Object.entries(services).map(([id, s]) => ({
-    id, name: s.name, cost: `${s.requiredHbar} HBAR`
+    id, name: s.name, cost: `${s.requiredHbar} HBAR`, costNum: s.requiredHbar
   }));
   res.json(serviceList);
 });
 
-app.post('/access', async (req, res) => {
-  const { serviceId, accountId, extra } = req.body;
-  if (!serviceId || !accountId) return res.status(400).json({ error: 'serviceId and accountId are required' });
+app.post('/verify-payment', async (req, res) => {
+  const { senderAccountId, serviceId } = req.body;
+  if (!senderAccountId || !serviceId) return res.status(400).json({ error: 'Missing fields' });
   const service = services[serviceId];
   if (!service) return res.status(404).json({ error: 'Service not found' });
-  const payment = await verifyPayment(accountId, service.requiredHbar);
-  if (!payment.verified) return res.status(402).json({ error: payment.message });
+  const result = await verifyTransaction(senderAccountId, process.env.ACCOUNT_ID, service.requiredHbar);
+  res.json(result);
+});
+
+app.post('/execute', async (req, res) => {
+  const { serviceId, accountId, extra } = req.body;
+  if (!serviceId || !accountId) return res.status(400).json({ error: 'Missing fields' });
+  const service = services[serviceId];
+  if (!service) return res.status(404).json({ error: 'Service not found' });
+  const verified = await verifyTransaction(accountId, process.env.ACCOUNT_ID, service.requiredHbar);
+  if (!verified.verified) return res.status(402).json({ error: verified.message });
   let result;
   if (serviceId === 'hcs-logger') result = await logToHCS(extra || 'Hello Hedera');
   else if (serviceId === 'token-creator') { const [name, symbol, supply] = (extra || 'MyToken,MTK,1000').split(','); result = await createToken(name?.trim(), symbol?.trim(), parseInt(supply)); }
@@ -37,6 +52,22 @@ app.post('/access', async (req, res) => {
   else if (serviceId === 'defi-rates') result = await getDefiRates();
   else result = grantAccess(serviceId, true);
   res.json({ success: true, result: result.message });
+});
+
+app.post('/chat', async (req, res) => {
+  const { messages, serviceId, accountId } = req.body;
+  if (!messages || !serviceId || !accountId) return res.status(400).json({ error: 'Missing fields' });
+  const service = services[serviceId];
+  const systemPrompt = `You are HashPay, a Hedera commerce agent. The user has paid for ${service?.name}. Help them use this service. Be concise and helpful.`;
+  try {
+    const response = await llm.invoke([
+      { role: 'system', content: systemPrompt },
+      ...messages
+    ]);
+    res.json({ reply: response.content });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 const PORT = process.env.PORT || 3000;
