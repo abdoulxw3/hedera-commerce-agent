@@ -1,5 +1,6 @@
 const PROJECT_ID = '1eb25284f2c2cc52088780c04246372d';
 window.wcProvider = null;
+window.wcSession = null;
 
 window.connectWallet = async function() {
   document.getElementById('wcModal').classList.add('open');
@@ -28,7 +29,7 @@ window.connectWallet = async function() {
       btn.style.display = 'block';
     });
 
-    const session = await window.wcProvider.connect({
+    window.wcSession = await window.wcProvider.connect({
       optionalNamespaces: {
         hedera: {
           methods: ['hedera_signAndExecuteTransaction', 'hedera_getNodeAddresses'],
@@ -38,7 +39,7 @@ window.connectWallet = async function() {
       }
     });
 
-    const accounts = session?.namespaces?.hedera?.accounts;
+    const accounts = window.wcSession?.namespaces?.hedera?.accounts;
     if (accounts && accounts.length > 0) {
       const accountId = accounts[0].split(':').pop();
       window.setConnectedAccount(accountId);
@@ -50,27 +51,32 @@ window.connectWallet = async function() {
   }
 }
 
-window.signAndPay = async function(serviceId, costNum, receiverAccount) {
-  if (!window.wcProvider) {
+window.signAndPay = async function(costNum) {
+  if (!window.wcProvider || !window.wcSession) {
     window.showNotify('Please connect wallet first');
     return false;
   }
 
   try {
-    const { TransferTransaction, Hbar, AccountId } =
+    // Build transaction bytes using Hedera SDK
+    const { TransferTransaction, Hbar, AccountId, Client } =
       await import('https://esm.sh/@hashgraph/sdk@2.50.0');
 
-    const senderId = AccountId.fromString(window.connectedAccount);
-    const receiverId = AccountId.fromString(receiverAccount);
+    const client = Client.forTestnet();
+    const sender = AccountId.fromString(window.connectedAccount);
+    const receiver = AccountId.fromString('0.0.9100611');
+    const amount = new Hbar(costNum);
 
-    const tx = new TransferTransaction()
-      .addHbarTransfer(senderEntry, Hbar.fromTinybars(-Math.floor(costNum * 100_000_000)))
-      .addHbarTransfer(receiverId, Hbar.fromTinybars(Math.floor(costNum * 100_000_000)));
+    const tx = await new TransferTransaction()
+      .addHbarTransfer(sender, amount.negated())
+      .addHbarTransfer(receiver, amount)
+      .freezeWith(client);
 
     const txBytes = Buffer.from(tx.toBytes()).toString('base64');
 
+    // Send signing request through WalletConnect
     const result = await window.wcProvider.request({
-      topic: window.wcProvider.session?.topic,
+      topic: window.wcSession.topic,
       chainId: 'hedera:testnet',
       request: {
         method: 'hedera_signAndExecuteTransaction',
@@ -80,7 +86,7 @@ window.signAndPay = async function(serviceId, costNum, receiverAccount) {
 
     return result;
   } catch(e) {
-    window.showNotify('Transaction failed: ' + e.message);
+    window.showNotify('Error: ' + e.message);
     return false;
   }
 }
