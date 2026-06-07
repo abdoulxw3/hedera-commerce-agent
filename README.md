@@ -1,4 +1,4 @@
-# NexPay
+# HashPay
 
 A payment-gated service agent built on the Hedera network. Users pay HBAR to unlock access to services — no payment, no access.
 

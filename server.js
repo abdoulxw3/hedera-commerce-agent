@@ -19,7 +19,7 @@ app.get('/', (req, res) => {
     cost: `${s.requiredHbar} HBAR`
   }));
   res.json({
-    name: 'NexPay',
+    name: 'HashPay',
     description: 'Payment-gated services on the Hedera network',
     services: serviceList
   });
@@ -42,4 +42,4 @@ app.post('/access', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🛒 NexPay running on port ${PORT}`));
+app.listen(PORT, () => console.log(`🛒 HashPay running on port ${PORT}`));

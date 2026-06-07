@@ -37,7 +37,7 @@ async function executeService(serviceId, extra) {
 }
 
 async function main() {
-  console.log('\n🛒 NexPay');
+  console.log('\n🛒 HashPay');
   console.log('========================');
   Object.entries(services).forEach(([id, s]) => {
     console.log(`  - ${id}: ${s.name} (${s.requiredHbar} HBAR)`);
