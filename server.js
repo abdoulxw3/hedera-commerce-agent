@@ -70,7 +70,7 @@ app.post('/chat', async (req, res) => {
   }
 });
 
-app.get('/wc-uri', async (req, res) => {
+// wc-uri handled below
   try {
     const { default: UniversalProvider } = await import('@walletconnect/universal-provider');
     const provider = await UniversalProvider.init({
@@ -109,3 +109,14 @@ app.get('/wc-uri', async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`🛒 HashPay running on port ${PORT}`));
+
+import { getWCUri } from './tools/wcProvider.js';
+
+app.get('/wc-uri', async (req, res) => {
+  try {
+    const uri = await getWCUri();
+    res.json({ uri });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
