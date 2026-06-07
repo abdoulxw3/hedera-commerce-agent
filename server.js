@@ -38,22 +38,6 @@ app.post('/verify-payment', async (req, res) => {
   res.json(result);
 });
 
-app.post('/execute', async (req, res) => {
-  const { serviceId, accountId, extra } = req.body;
-  if (!serviceId || !accountId) return res.status(400).json({ error: 'Missing fields' });
-  const service = services[serviceId];
-  if (!service) return res.status(404).json({ error: 'Service not found' });
-  const verified = await verifyTransaction(accountId, process.env.ACCOUNT_ID, service.requiredHbar);
-  if (!verified.verified) return res.status(402).json({ error: verified.message });
-  let result;
-  if (serviceId === 'hcs-logger') result = await logToHCS(extra || 'Hello Hedera');
-  else if (serviceId === 'token-creator') { const [name, symbol, supply] = (extra || 'MyToken,MTK,1000').split(','); result = await createToken(name?.trim(), symbol?.trim(), parseInt(supply)); }
-  else if (serviceId === 'nft-minter') { const [name, symbol] = (extra || 'MyNFT,MNFT').split(','); result = await mintNFT(name?.trim(), symbol?.trim()); }
-  else if (serviceId === 'defi-rates') result = await getDefiRates();
-  else result = grantAccess(serviceId, true);
-  res.json({ success: true, result: result.message });
-});
-
 app.post('/chat', async (req, res) => {
   const { messages, serviceId, accountId } = req.body;
   if (!messages || !serviceId || !accountId) return res.status(400).json({ error: 'Missing fields' });
@@ -70,53 +54,21 @@ app.post('/chat', async (req, res) => {
   }
 });
 
-// wc-uri handled below
-  try {
-    const { default: UniversalProvider } = await import('@walletconnect/universal-provider');
-    const provider = await UniversalProvider.init({
-      projectId: '1eb25284f2c2cc52088780c04246372d',
-      metadata: {
-        name: 'HashPay',
-        description: 'Payment-Gated Services on Hedera',
-        url: 'https://hashpay.up.railway.app',
-        icons: ['https://avatars.githubusercontent.com/u/116641441']
-      }
-    });
-
-    let uri = null;
-    provider.on('display_uri', (u) => { uri = u; });
-
-    provider.connect({
-      optionalNamespaces: {
-        hedera: {
-          methods: ['hedera_signAndExecuteTransaction'],
-          chains: ['hedera:testnet'],
-          events: []
-        }
-      }
-    }).catch(() => {});
-
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    if (uri) {
-      res.json({ uri });
-    } else {
-      res.status(500).json({ error: 'Failed to generate URI' });
-    }
-  } catch(e) {
-    res.status(500).json({ error: e.message });
-  }
+app.post('/execute', async (req, res) => {
+  const { serviceId, accountId, extra } = req.body;
+  if (!serviceId || !accountId) return res.status(400).json({ error: 'Missing fields' });
+  const service = services[serviceId];
+  if (!service) return res.status(404).json({ error: 'Service not found' });
+  const verified = await verifyTransaction(accountId, process.env.ACCOUNT_ID, service.requiredHbar);
+  if (!verified.verified) return res.status(402).json({ error: verified.message });
+  let result;
+  if (serviceId === 'hcs-logger') result = await logToHCS(extra || 'Hello Hedera');
+  else if (serviceId === 'token-creator') { const [name, symbol, supply] = (extra || 'MyToken,MTK,1000').split(','); result = await createToken(name?.trim(), symbol?.trim(), parseInt(supply)); }
+  else if (serviceId === 'nft-minter') { const [name, symbol] = (extra || 'MyNFT,MNFT').split(','); result = await mintNFT(name?.trim(), symbol?.trim()); }
+  else if (serviceId === 'defi-rates') result = await getDefiRates();
+  else result = grantAccess(serviceId, true);
+  res.json({ success: true, result: result.message });
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`🛒 HashPay running on port ${PORT}`));
-
-import { getWCUri } from './tools/wcProvider.js';
-
-app.get('/wc-uri', async (req, res) => {
-  try {
-    const uri = await getWCUri();
-    res.json({ uri });
-  } catch(e) {
-    res.status(500).json({ error: e.message });
-  }
-});
