@@ -5,7 +5,7 @@ dotenv.config();
 
 const client = Client.forTestnet().setOperator(
   process.env.ACCOUNT_ID,
-  PrivateKey.fromStringECDSA(process.env.PRIVATE_KEY)
+  PrivateKey.fromStringECDSA(process.env.PRIVATE_KEY?.replace('0x', ''))
 );
 
 export async function createToken(name, symbol, supply) {
@@ -17,7 +17,7 @@ export async function createToken(name, symbol, supply) {
       .setDecimals(2)
       .setInitialSupply(supply || 1000)
       .setTreasuryAccountId(process.env.ACCOUNT_ID)
-      .setAdminKey(PrivateKey.fromStringECDSA(process.env.PRIVATE_KEY))
+      .setAdminKey(PrivateKey.fromStringECDSA(process.env.PRIVATE_KEY?.replace('0x', '')))
       .execute(client);
 
     const receipt = await tokenTx.getReceipt(client);

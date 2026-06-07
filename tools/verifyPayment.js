@@ -5,7 +5,7 @@ dotenv.config();
 
 const client = Client.forTestnet().setOperator(
   process.env.ACCOUNT_ID,
-  PrivateKey.fromStringECDSA(process.env.PRIVATE_KEY)
+  PrivateKey.fromStringECDSA(process.env.PRIVATE_KEY?.replace('0x', ''))
 );
 
 export async function verifyPayment(accountId, requiredHbar) {

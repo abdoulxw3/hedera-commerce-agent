@@ -5,7 +5,7 @@ dotenv.config();
 
 const client = Client.forTestnet().setOperator(
   process.env.ACCOUNT_ID,
-  PrivateKey.fromStringECDSA(process.env.PRIVATE_KEY)
+  PrivateKey.fromStringECDSA(process.env.PRIVATE_KEY?.replace('0x', ''))
 );
 
 export async function mintNFT(name, symbol) {
@@ -18,8 +18,8 @@ export async function mintNFT(name, symbol) {
       .setDecimals(0)
       .setInitialSupply(0)
       .setTreasuryAccountId(process.env.ACCOUNT_ID)
-      .setAdminKey(PrivateKey.fromStringECDSA(process.env.PRIVATE_KEY))
-      .setSupplyKey(PrivateKey.fromStringECDSA(process.env.PRIVATE_KEY))
+      .setAdminKey(PrivateKey.fromStringECDSA(process.env.PRIVATE_KEY?.replace('0x', '')))
+      .setSupplyKey(PrivateKey.fromStringECDSA(process.env.PRIVATE_KEY?.replace('0x', '')))
       .execute(client);
 
     const nftReceipt = await nftTx.getReceipt(client);
