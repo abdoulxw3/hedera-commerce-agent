@@ -232,7 +232,7 @@ async function sendMessage(){
   }catch(e){document.getElementById('typing')?.remove();addMessage('agent','Error: '+e.message);}
 }
 
-function renderServices(){
+function setConnectedAccount(id){ connectedAccount=id; document.getElementById("walletBtn").className="wallet-connected"; document.getElementById("walletBtn").textContent="✅ "+id; showNotify("Connected: "+id); renderServices(); closeModal(); } function renderServices(){
   const c=document.getElementById('servicesGrid');c.innerHTML='';
   allServices.forEach(s=>{
     const locked=!connectedAccount;
