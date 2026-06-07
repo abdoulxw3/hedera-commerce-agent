@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>HashPay — Payment-Gated Services on Hedera</title>
-<script src="https://cdn.jsdelivr.net/npm/@reown/appkit-cdn@1.6.8/dist/appkit.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:#0a0a0f;color:#fff;font-family:'Segoe UI',sans-serif;min-height:100vh}
@@ -12,6 +11,8 @@ header{padding:18px 24px;border-bottom:1px solid #1a1a2e;display:flex;align-item
 .logo{display:flex;align-items:center;gap:10px}
 .logo h1{font-size:20px;background:linear-gradient(90deg,#8b5cf6,#06b6d4);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-weight:700}
 .logo span{background:#1a1a2e;color:#8b5cf6;font-size:10px;padding:3px 8px;border-radius:20px;border:1px solid #8b5cf6}
+.wallet-btn{background:linear-gradient(90deg,#8b5cf6,#06b6d4);border:none;color:#fff;padding:9px 18px;border-radius:10px;font-size:13px;cursor:pointer;font-weight:600}
+.wallet-connected{background:#1a1a2e;border:1px solid #4ade80;color:#4ade80;padding:9px 18px;border-radius:10px;font-size:12px}
 .screen{display:none}.screen.active{display:block}
 .hero{text-align:center;padding:50px 20px 30px}
 .hero h2{font-size:30px;font-weight:700;margin-bottom:10px}
@@ -55,12 +56,23 @@ header{padding:18px 24px;border-bottom:1px solid #1a1a2e;display:flex;align-item
 .chat-input:focus{border-color:#8b5cf6}
 .send-btn{background:linear-gradient(90deg,#8b5cf6,#06b6d4);border:none;color:#fff;padding:12px 20px;border-radius:12px;cursor:pointer;font-weight:600}
 .notify{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1a2e;border:1px solid #8b5cf6;color:#fff;padding:10px 20px;border-radius:12px;font-size:13px;z-index:200;display:none;white-space:nowrap}
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:100;align-items:center;justify-content:center}
+.modal.open{display:flex}
+.modal-box{background:#111120;border:1px solid #2a2a4e;border-radius:20px;padding:28px;width:90%;max-width:380px;text-align:center}
+.modal-box h3{font-size:18px;margin-bottom:6px}
+.modal-box p{color:#666;font-size:13px;margin-bottom:20px}
+.qr-container{margin:0 auto 20px;min-height:200px;display:flex;align-items:center;justify-content:center}
+.deep-link-btn{display:none;width:100%;background:linear-gradient(90deg,#8b5cf6,#06b6d4);color:#fff;padding:12px;border-radius:10px;font-size:14px;font-weight:600;text-decoration:none;margin-bottom:10px;text-align:center}
+.modal-cancel{width:100%;background:#1a1a2e;border:1px solid #444;color:#888;padding:11px;border-radius:10px;font-size:13px;cursor:pointer}
+.manual-section{margin-top:12px;border-top:1px solid #2a2a4e;padding-top:12px}
+.manual-input{width:100%;background:#1a1a2e;border:1px solid #2a2a4e;color:#fff;padding:11px;border-radius:10px;font-size:13px;margin-bottom:10px}
+.manual-btn{width:100%;background:#1a1a2e;border:1px solid #8b5cf6;color:#8b5cf6;padding:11px;border-radius:10px;font-size:13px;cursor:pointer;font-weight:600}
 </style>
 </head>
 <body>
 <header>
   <div class="logo"><h1>⚡ HashPay</h1><span>Hedera Testnet</span></div>
-  <appkit-button></appkit-button>
+  <button class="wallet-btn" id="walletBtn" onclick="connectWallet()">Connect Wallet</button>
 </header>
 
 <div class="screen active" id="homeScreen">
@@ -83,7 +95,7 @@ header{padding:18px 24px;border-bottom:1px solid #1a1a2e;display:flex;align-item
       </div>
       <p style="color:#888;font-size:13px;margin-bottom:8px">Send to HashPay:</p>
       <div class="receiver-box">0.0.9100611</div>
-      <button class="pay-btn" onclick="payWithWallet()">⚡ Pay with Wallet</button>
+      <button class="pay-btn" onclick="payWithWallet()">⚡ Pay with HashPack</button>
       <button class="verify-btn" onclick="verifyPayment()">✅ Already paid — Verify</button>
       <div class="status-msg" id="payStatus"></div>
     </div>
@@ -108,49 +120,53 @@ header{padding:18px 24px;border-bottom:1px solid #1a1a2e;display:flex;align-item
   </div>
 </div>
 
+<!-- Wallet Modal -->
+<div class="modal" id="wcModal">
+  <div class="modal-box">
+    <h3>Connect Wallet</h3>
+    <p>Scan with HashPack or tap the button to open your wallet</p>
+    <div class="qr-container" id="qrContainer">
+      <p style="color:#666;font-size:13px">Loading...</p>
+    </div>
+    <a class="deep-link-btn" id="deepLinkBtn" href="#">Open HashPack App</a>
+    <div class="manual-section">
+      <p style="color:#666;font-size:12px;margin-bottom:10px">Or enter account ID manually:</p>
+      <input class="manual-input" id="manualInput" placeholder="0.0.xxxxx"/>
+      <button class="manual-btn" onclick="confirmManual()">Connect</button>
+    </div>
+    <button class="modal-cancel" onclick="closeModal()" style="margin-top:10px">Cancel</button>
+  </div>
+</div>
+
 <div class="notify" id="notify"></div>
 
+<script src="/connect.js"></script>
 <script>
-const PROJECT_ID = '1eb25284f2c2cc52088780c04246372d';
-
-// Init Reown AppKit for Hedera
-const { createAppKit } = window.AppKit;
-const modal = createAppKit({
-  projectId: PROJECT_ID,
-  networks: [{
-    id: 296,
-    name: 'Hedera Testnet',
-    nativeCurrency: { name: 'HBAR', symbol: 'HBAR', decimals: 8 },
-    rpcUrls: { default: { http: ['https://testnet.hashio.io/api'] } },
-    blockExplorers: { default: { name: 'HashScan', url: 'https://hashscan.io/testnet' } }
-  }],
-  metadata: {
-    name: 'HashPay',
-    description: 'Payment-Gated Services on Hedera',
-    url: 'https://hashpay.up.railway.app',
-    icons: ['https://avatars.githubusercontent.com/u/116641441']
-  }
-});
-
 const icons={'weather-api':'🌤️','market-data':'📊','ai-reports':'🤖','hcs-logger':'📝','token-creator':'🪙','nft-minter':'🖼️','defi-rates':'💹'};
 const descs={'weather-api':'Get premium weather data','market-data':'Live market data feed','ai-reports':'AI-generated research reports','hcs-logger':'Store messages permanently on Hedera','token-creator':'Create your own HTS token','nft-minter':'Mint an NFT on Hedera','defi-rates':'Live DeFi rates from Hedera ecosystem'};
 
 let connectedAccount=null,currentService=null,allServices=[],chatHistory=[];
 
-// Listen for wallet connection
-modal.subscribeAccount(account => {
-  if(account.address){
-    connectedAccount = account.address;
-    showNotify('Connected: '+connectedAccount.substring(0,16)+'...');
-    renderServices();
-  }
-});
-
 function showNotify(msg){const el=document.getElementById('notify');el.textContent=msg;el.style.display='block';setTimeout(()=>el.style.display='none',3000);}
 function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');}
+function closeModal(){document.getElementById('wcModal').classList.remove('open');}
+
+function confirmManual(){
+  const val=document.getElementById('manualInput').value.trim();
+  if(val.match(/^0\.0\.\d+$/)){
+    connectedAccount=val;
+    document.getElementById('walletBtn').className='wallet-connected';
+    document.getElementById('walletBtn').textContent='✅ '+val;
+    closeModal();
+    showNotify('Connected: '+val);
+    renderServices();
+  } else {
+    showNotify('Invalid format. Use 0.0.xxxxx');
+  }
+}
 
 function selectService(id){
-  if(!connectedAccount){showNotify('Connect wallet first');modal.open();return;}
+  if(!connectedAccount){showNotify('Connect wallet first');return;}
   currentService=allServices.find(s=>s.id===id);
   document.getElementById('pay-service-name').textContent=currentService.name;
   document.getElementById('pay-service-desc').textContent=descs[id]||'';
@@ -159,35 +175,19 @@ function selectService(id){
   showScreen('paymentScreen');
 }
 
-async function payWithWallet(){
-  if(!connectedAccount||!currentService)return;
-  const status=document.getElementById('payStatus');
-  status.className='status-msg info';status.style.display='block';
-  status.textContent='⏳ Requesting payment from your wallet...';
-  try{
-    const provider=modal.getWalletProvider();
-    const tx={
-      from:connectedAccount,
-      to:'0x' + Buffer.from('0.0.9100611'.replace(/\./g,'')).toString('hex'),
-      value:'0x'+Math.floor(currentService.costNum*100000000).toString(16)
-    };
-    await provider.request({method:'eth_sendTransaction',params:[tx]});
-    status.className='status-msg success';
-    status.textContent='✅ Transaction sent! Verifying...';
-    setTimeout(()=>verifyPayment(),3000);
-  }catch(e){
-    status.className='status-msg error';
-    status.textContent='Transaction failed: '+e.message;
-  }
+function payWithWallet(){
+  if(!currentService)return;
+  const uri=`hashpack://transfer?to=0.0.9100611&amount=${currentService.costNum}&network=testnet&memo=HashPay-${currentService.id}`;
+  window.location.href=uri;
+  setTimeout(()=>showNotify('Complete payment in HashPack, then click Verify'),500);
 }
 
 async function verifyPayment(){
   const status=document.getElementById('payStatus');
   status.className='status-msg info';status.style.display='block';
   status.textContent='🔍 Checking blockchain...';
-  const accountId=connectedAccount.includes('.')?connectedAccount:'0.0.'+connectedAccount.replace('0x','');
   try{
-    const res=await fetch('/verify-payment',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({senderAccountId:accountId,serviceId:currentService.id})});
+    const res=await fetch('/verify-payment',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({senderAccountId:connectedAccount,serviceId:currentService.id})});
     const data=await res.json();
     if(data.verified){
       status.className='status-msg success';

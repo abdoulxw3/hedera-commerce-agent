@@ -72,3 +72,42 @@ app.post('/chat', async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`🛒 HashPay running on port ${PORT}`));
+
+import UniversalProvider from '@walletconnect/universal-provider';
+
+let pairingUri = null;
+let providerInstance = null;
+
+app.get('/wc-uri', async (req, res) => {
+  try {
+    const provider = await UniversalProvider.init({
+      projectId: '1eb25284f2c2cc52088780c04246372d',
+      metadata: {
+        name: 'HashPay',
+        description: 'Payment-Gated Services on Hedera',
+        url: 'https://hashpay.up.railway.app',
+        icons: ['https://avatars.githubusercontent.com/u/116641441']
+      }
+    });
+
+    providerInstance = provider;
+
+    provider.on('display_uri', (uri) => {
+      pairingUri = uri;
+    });
+
+    await provider.connect({
+      optionalNamespaces: {
+        hedera: {
+          methods: ['hedera_signAndExecuteTransaction', 'hedera_getNodeAddresses'],
+          chains: ['hedera:testnet'],
+          events: ['chainChanged', 'accountsChanged']
+        }
+      }
+    });
+
+    res.json({ uri: pairingUri });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
