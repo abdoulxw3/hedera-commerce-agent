@@ -18,18 +18,10 @@ const app = express();
 app.use(express.json());
 app.use(express.static(join(__dirname, 'public')));
 
-function getLLM() {
-  return new ChatGroq({
-    model: 'llama-3.1-8b-instant',
-    apiKey: process.env.GROQ_API_KEY,
-  }); return _llm; };
-}
-
 app.get('/services', (req, res) => {
-  const serviceList = Object.entries(services).map(([id, s]) => ({
+  res.json(Object.entries(services).map(([id, s]) => ({
     id, name: s.name, cost: `${s.requiredHbar} HBAR`, costNum: s.requiredHbar
-  }));
-  res.json(serviceList);
+  })));
 });
 
 app.post('/verify-payment', async (req, res) => {
@@ -37,23 +29,21 @@ app.post('/verify-payment', async (req, res) => {
   if (!senderAccountId || !serviceId) return res.status(400).json({ error: 'Missing fields' });
   const service = services[serviceId];
   if (!service) return res.status(404).json({ error: 'Service not found' });
-  const result = await verifyTransaction(senderAccountId, process.env.ACCOUNT_ID, service.requiredHbar);
-  res.json(result);
+  res.json(await verifyTransaction(senderAccountId, process.env.ACCOUNT_ID, service.requiredHbar));
 });
 
 app.post('/chat', async (req, res) => {
-  const { messages, serviceId, accountId } = req.body;
-  if (!messages || !serviceId || !accountId) return res.status(400).json({ error: 'Missing fields' });
-  const service = services[serviceId];
-  const systemPrompt = `You are HashPay, a Hedera commerce agent. The user has paid for ${service?.name}. Help them use this service. Be concise and helpful.`;
+  const { messages, serviceId } = req.body;
+  if (!messages || !serviceId) return res.status(400).json({ error: 'Missing fields' });
   try {
-    const response = await getLLM().invoke([
-      { role: 'system', content: systemPrompt },
+    const llm = new ChatGroq({ model: 'llama-3.1-8b-instant', apiKey: process.env.GROQ_API_KEY });
+    const response = await llm.invoke([
+      { role: 'system', content: `You are HashPay agent. User paid for ${services[serviceId]?.name}. Be helpful and concise.` },
       ...messages
     ]);
     res.json({ reply: response.content });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
   }
 });
 
@@ -66,8 +56,8 @@ app.post('/execute', async (req, res) => {
   if (!verified.verified) return res.status(402).json({ error: verified.message });
   let result;
   if (serviceId === 'hcs-logger') result = await logToHCS(extra || 'Hello Hedera');
-  else if (serviceId === 'token-creator') { const [name, symbol, supply] = (extra || 'MyToken,MTK,1000').split(','); result = await createToken(name?.trim(), symbol?.trim(), parseInt(supply)); }
-  else if (serviceId === 'nft-minter') { const [name, symbol] = (extra || 'MyNFT,MNFT').split(','); result = await mintNFT(name?.trim(), symbol?.trim()); }
+  else if (serviceId === 'token-creator') { const [n,s,sup] = (extra||'MyToken,MTK,1000').split(','); result = await createToken(n?.trim(),s?.trim(),parseInt(sup)); }
+  else if (serviceId === 'nft-minter') { const [n,s] = (extra||'MyNFT,MNFT').split(','); result = await mintNFT(n?.trim(),s?.trim()); }
   else if (serviceId === 'defi-rates') result = await getDefiRates();
   else result = grantAccess(serviceId, true);
   res.json({ success: true, result: result.message });
@@ -85,13 +75,13 @@ app.post('/build-transfer', async (req, res) => {
 
 app.get('/evm-address/:accountId', async (req, res) => {
   try {
-    const response = await fetch(`https://testnet.mirrornode.hedera.com/api/v1/accounts/${req.params.accountId}`);
-    const data = await response.json();
-    res.json({ evmAddress: data.evm_address });
+    const r = await fetch(`https://testnet.mirrornode.hedera.com/api/v1/accounts/${req.params.accountId}`);
+    const d = await r.json();
+    res.json({ evmAddress: d.evm_address });
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🛒 HashPay running on port ${PORT}`));
+app.listen(PORT, () => console.log(`HashPay running on port ${PORT}`));
