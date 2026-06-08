@@ -1,9 +1,10 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
-export async function verifyTransaction(senderAccountId, receiverAccountId, requiredHbar, windowSeconds = 300) {
+export async function verifyTransaction(senderAccountId, receiverAccountId, requiredHbar, windowSeconds = 3600) {
   try {
-    const url = `https://testnet.mirrornode.hedera.com/api/v1/transactions?account.id=${senderAccountId}&type=credit&limit=25&order=desc`;
+    // Query transactions for the RECEIVER account
+    const url = `https://testnet.mirrornode.hedera.com/api/v1/transactions?account.id=${receiverAccountId}&type=credit&limit=25&order=desc`;
     const response = await fetch(url);
     const data = await response.json();
 
