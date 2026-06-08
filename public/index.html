@@ -145,6 +145,7 @@ header{padding:18px 24px;border-bottom:1px solid #1a1a2e;display:flex;align-item
 const icons={'weather-api':'🌤️','market-data':'📊','ai-reports':'🤖','hcs-logger':'📝','token-creator':'🪙','nft-minter':'🖼️','defi-rates':'💹'};
 const descs={'weather-api':'Get premium weather data','market-data':'Live market data feed','ai-reports':'AI-generated research reports','hcs-logger':'Store messages permanently on Hedera','token-creator':'Create your own HTS token','nft-minter':'Mint an NFT on Hedera','defi-rates':'Live DeFi rates from Hedera ecosystem'};
 
+window.connectedAccount=null;
 let connectedAccount=null,currentService=null,allServices=[],chatHistory=[];
 
 function showNotify(msg){const el=document.getElementById('notify');el.textContent=msg;el.style.display='block';setTimeout(()=>el.style.display='none',3000);}
@@ -241,7 +242,7 @@ async function sendMessage(){
   }catch(e){document.getElementById('typing')?.remove();addMessage('agent','Error: '+e.message);}
 }
 
-function setConnectedAccount(id){ connectedAccount=id; document.getElementById("walletBtn").className="wallet-connected"; document.getElementById("walletBtn").textContent="✅ "+id; showNotify("Connected: "+id); renderServices(); closeModal(); } function renderServices(){
+function setConnectedAccount(id){ connectedAccount=id; window.connectedAccount=id; document.getElementById("walletBtn").className="wallet-connected"; document.getElementById("walletBtn").textContent="✅ "+id; showNotify("Connected: "+id); renderServices(); closeModal(); } function renderServices(){
   const c=document.getElementById('servicesGrid');c.innerHTML='';
   allServices.forEach(s=>{
     const locked=!connectedAccount;
