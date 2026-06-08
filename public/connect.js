@@ -25,7 +25,7 @@ window.connectWallet = async function() {
              style="border-radius:12px;width:200px;height:200px"/>
         <p style="color:#666;font-size:11px;margin-top:8px">Scan with HashPack</p>`;
       const btn = document.getElementById('deepLinkBtn');
-      if(btn){ btn.href = uri; btn.style.display = 'block'; }
+      if(btn){ btn.href = 'hashpack://wc?uri=' + encodeURIComponent(uri); btn.style.display = 'block'; }
     });
 
     window.wcSession = await window.wcProvider.connect({
