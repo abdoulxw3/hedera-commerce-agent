@@ -197,6 +197,11 @@ header{padding:16px 24px;border-bottom:1px solid rgba(255,255,255,0.06);display:
 <div class="notify" id="notify"></div>
 
 <script src="/connect.js"></script>
+<script type="module">
+import { saveSession, loadSession } from "/session.js";
+window.saveSession = saveSession;
+window.loadSession = loadSession;
+</script>
 <script>
 const icons={'weather-api':'🌤️','market-data':'📊','ai-reports':'🤖','hcs-logger':'📝','token-creator':'🪙','nft-minter':'🖼️','defi-rates':'💹'};
 const descs={'weather-api':'Access premium real-time weather data','market-data':'Live crypto market data & analytics','ai-reports':'AI-generated research & analysis reports','hcs-logger':'Store messages permanently on Hedera','token-creator':'Create your own HTS fungible token','nft-minter':'Mint an NFT on Hedera Token Service','defi-rates':'Live DeFi rates from Hedera ecosystem'};
@@ -209,6 +214,7 @@ function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classL
 function closeModal(){document.getElementById('wcModal').classList.remove('open');}
 
 function setConnectedAccount(id){
+  if(window.saveSession) window.saveSession(id);
   connectedAccount=id;
   window.connectedAccount=id;
   document.getElementById('walletBtn').className='wallet-connected';
@@ -277,6 +283,11 @@ function openChat(){
   document.getElementById('chat-account').textContent=connectedAccount;
   document.getElementById('chatMsgs').innerHTML='';
   addMsg('system','✅ Payment verified! You now have access to '+currentService.name+'. How can I help you?');
+  // Execute the service
+  fetch('/execute',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({serviceId:currentService.id,accountId:connectedAccount})})
+  .then(r=>r.json()).then(data=>{
+    if(data.result) addMsg('agent', data.result);
+  }).catch(()=>{});
   showScreen('chatScreen');
 }
 
@@ -318,7 +329,17 @@ function renderServices(){
   });
 }
 
-fetch('/services').then(r=>r.json()).then(s=>{allServices=s;renderServices();});
+fetch('/services').then(r=>r.json()).then(s=>{
+  allServices=s;
+  // Restore session
+  setTimeout(()=>{
+    if(window.loadSession){
+      const saved = window.loadSession();
+      if(saved){ setConnectedAccount(saved); showNotify('Session restored: '+saved); }
+    }
+  }, 500);
+  renderServices();
+});
 </script>
 </body>
 </html>
