@@ -5,6 +5,7 @@ import { createToken } from './tools/tokenCreator.js';
 import { mintNFT } from './tools/nftMinter.js';
 import { getDefiRates } from './tools/defiRates.js';
 import { verifyTransaction } from './tools/verifyTransaction.js';
+import { buildTransfer } from './tools/buildTransfer.js';
 import { ChatGroq } from '@langchain/groq';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -17,10 +18,12 @@ const app = express();
 app.use(express.json());
 app.use(express.static(join(__dirname, 'public')));
 
-const llm = new ChatGroq({
-  model: 'llama-3.1-8b-instant',
-  apiKey: process.env.GROQ_API_KEY,
-});
+function getLLM() {
+  return new ChatGroq({
+    model: 'llama-3.1-8b-instant',
+    apiKey: process.env.GROQ_API_KEY,
+  }); return _llm; };
+}
 
 app.get('/services', (req, res) => {
   const serviceList = Object.entries(services).map(([id, s]) => ({
@@ -44,7 +47,7 @@ app.post('/chat', async (req, res) => {
   const service = services[serviceId];
   const systemPrompt = `You are HashPay, a Hedera commerce agent. The user has paid for ${service?.name}. Help them use this service. Be concise and helpful.`;
   try {
-    const response = await llm.invoke([
+    const response = await getLLM().invoke([
       { role: 'system', content: systemPrompt },
       ...messages
     ]);
@@ -70,26 +73,6 @@ app.post('/execute', async (req, res) => {
   res.json({ success: true, result: result.message });
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🛒 HashPay running on port ${PORT}`));
-
-
-
-app.post('/build-transfer', async (req, res) => {
-  try {
-    const { senderAccountId, amount } = req.body;
-    const tx = new TransferTransaction()
-      .addHbarTransfer(AccountId.fromString(senderAccountId), new Hbar(-amount))
-      .addHbarTransfer(AccountId.fromString(process.env.ACCOUNT_ID), new Hbar(amount));
-    const txBytes = Buffer.from(tx.toBytes()).toString('base64');
-    res.json({ txBytes });
-  } catch(e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-import { buildTransfer } from './tools/buildTransfer.js';
-
 app.post('/build-transfer', async (req, res) => {
   try {
     const { senderAccountId, amount } = req.body;
@@ -109,3 +92,6 @@ app.get('/evm-address/:accountId', async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`🛒 HashPay running on port ${PORT}`));
