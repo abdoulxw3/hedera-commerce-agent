@@ -1,12 +1,12 @@
 const PROJECT_ID = '1eb25284f2c2cc52088780c04246372d';
 window.dAppConnector = null;
+window.wcSession = null;
 
 window.connectWallet = async function() {
   document.getElementById('wcModal').classList.add('open');
   document.getElementById('qrContainer').innerHTML = '<p style="color:#888;font-size:13px">Initializing...</p>';
 
   try {
-    // Use UniversalProvider which works in browsers
     const { default: UniversalProvider } = await import('/wc.bundle.js');
 
     const provider = await UniversalProvider.init({
@@ -31,8 +31,13 @@ window.connectWallet = async function() {
       btn.style.display = 'block';
     });
 
-    const session = await provider.connect({
+    window.wcSession = await provider.connect({
       optionalNamespaces: {
+        eip155: {
+          methods: ['eth_sendTransaction', 'personal_sign'],
+          chains: ['eip155:296'],
+          events: ['accountsChanged', 'chainChanged']
+        },
         hedera: {
           methods: ['hedera_signAndExecuteTransaction'],
           chains: ['hedera:testnet'],
@@ -41,11 +46,16 @@ window.connectWallet = async function() {
       }
     });
 
-    window.wcSession = session;
-    const accounts = session?.namespaces?.hedera?.accounts;
-    if (accounts?.length > 0) {
-      const accountId = accounts[0].split(':').pop();
+    // Try to get Hedera account first, fall back to EVM address
+    const hederaAccounts = window.wcSession?.namespaces?.hedera?.accounts;
+    const evmAccounts = window.wcSession?.namespaces?.eip155?.accounts;
+
+    if (hederaAccounts?.length > 0) {
+      const accountId = hederaAccounts[0].split(':').pop();
       window.setConnectedAccount(accountId);
+    } else if (evmAccounts?.length > 0) {
+      const evmAddress = evmAccounts[0].split(':').pop();
+      window.setConnectedAccount(evmAddress);
     }
 
   } catch(e) {
@@ -61,28 +71,51 @@ window.signAndPay = async function(costNum) {
   }
 
   try {
-    // Get transaction bytes from backend
-    const res = await fetch('/build-transfer', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        senderAccountId: window.connectedAccount,
-        amount: costNum
-      })
-    });
-    const { txBytes } = await res.json();
+    const account = window.connectedAccount;
+    const isHederaAccount = account.includes('.');
 
-    // Send to wallet for signing
-    const result = await window.dAppConnector.request({
-      topic: window.wcSession.topic,
-      chainId: 'hedera:testnet',
-      request: {
-        method: 'hedera_signAndExecuteTransaction',
-        params: { transactionList: txBytes }
-      }
-    });
+    if (isHederaAccount) {
+      // Native Hedera transfer
+      const res = await fetch('/build-transfer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ senderAccountId: account, amount: costNum })
+      });
+      const { txBytes, error } = await res.json();
+      if (error) throw new Error(error);
 
-    return result;
+      const result = await window.dAppConnector.request({
+        topic: window.wcSession.topic,
+        chainId: 'hedera:testnet',
+        request: {
+          method: 'hedera_signAndExecuteTransaction',
+          params: { transactionList: txBytes }
+        }
+      });
+      return result;
+
+    } else {
+      // EVM transfer (HBAR on Hedera EVM)
+      const tinybars = Math.floor(costNum * 100_000_000);
+      const receiverRes = await fetch('/evm-address/0.0.9100611');
+      const { evmAddress } = await receiverRes.json();
+
+      const result = await window.dAppConnector.request({
+        topic: window.wcSession.topic,
+        chainId: 'eip155:296',
+        request: {
+          method: 'eth_sendTransaction',
+          params: [{
+            from: account,
+            to: evmAddress,
+            value: '0x' + tinybars.toString(16),
+            gas: '0x5208'
+          }]
+        }
+      });
+      return result;
+    }
+
   } catch(e) {
     window.showNotify('Error: ' + e.message);
     return false;

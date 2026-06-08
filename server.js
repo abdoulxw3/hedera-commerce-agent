@@ -99,3 +99,13 @@ app.post('/build-transfer', async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
+
+app.get('/evm-address/:accountId', async (req, res) => {
+  try {
+    const response = await fetch(`https://testnet.mirrornode.hedera.com/api/v1/accounts/${req.params.accountId}`);
+    const data = await response.json();
+    res.json({ evmAddress: data.evm_address });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
