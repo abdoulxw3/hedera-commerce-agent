@@ -1,3 +1,4 @@
+grep -n "showScreen\|paymentScreen\|active" public/index.html | head -15
 # ⚡ HashPay — Payment-Gated Services on Hedera
 
 > A full-stack Web3 commerce agent built on the Hedera network. Pay HBAR, get instant access to on-chain services. Implements x402, UCP, and ACP agentic commerce protocols.

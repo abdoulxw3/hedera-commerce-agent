@@ -234,6 +234,7 @@ function confirmManual(){
 }
 
 function selectService(id){
+  alert("Service: "+id+" Account: "+connectedAccount);
   if(!connectedAccount){showNotify('Please connect wallet first');return;}
   currentService=allServices.find(s=>s.id===id);
   document.getElementById('pay-name').textContent=currentService.name;
