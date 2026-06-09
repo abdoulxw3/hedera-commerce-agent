@@ -73,8 +73,12 @@ app.post('/chat', async (req, res) => {
   const { messages, serviceId, accountId } = req.body;
   if (!messages || !serviceId || !accountId) return res.status(400).json({ error: 'Missing fields' });
   
+  // Verify payment from Mirror Node (handles server restarts)
   if (!hasPaid(accountId, serviceId)) {
-    return res.status(402).json({ error: 'Payment required. Please pay for this service first.' });
+    const service_check = services[serviceId];
+    const check = await verifyTransaction(accountId, process.env.ACCOUNT_ID, service_check.requiredHbar, usedTxIds);
+    if (!check.verified) return res.status(402).json({ error: 'Payment required for ' + service_check.name });
+    markPaid(accountId, serviceId, check.txId);
   }
   
   try {
