@@ -209,6 +209,9 @@ const descs={'weather-api':'Access premium real-time weather data','market-data'
 window.connectedAccount=null;
 let connectedAccount=null,currentService=null,allServices=[],chatHistory=[];
 
+window.connectedAccount=null;
+let connectedAccount=null,currentService=null,allServices=[],chatHistory=[];
+
 function showNotify(msg){const el=document.getElementById('notify');el.textContent=msg;el.style.display='block';setTimeout(()=>el.style.display='none',3000);}
 function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');}
 function closeModal(){document.getElementById('wcModal').classList.remove('open');}
