@@ -33,15 +33,26 @@ app.post('/verify-payment', async (req, res) => {
 });
 
 app.post('/chat', async (req, res) => {
-  const { messages, serviceId } = req.body;
+  const { messages, serviceId, accountId } = req.body;
   if (!messages || !serviceId) return res.status(400).json({ error: 'Missing fields' });
   try {
-    const llm = new ChatGroq({ model: 'llama-3.1-8b-instant', apiKey: process.env.GROQ_API_KEY });
-    const response = await llm.invoke([
-      { role: 'system', content: `You are HashPay agent. User paid for ${services[serviceId]?.name}. Be helpful and concise.` },
-      ...messages
-    ]);
-    res.json({ reply: response.content });
+    const lastMessage = messages[messages.length - 1]?.content || '';
+    const hederaServices = ['hcs-logger', 'token-creator', 'nft-minter'];
+    
+    if (hederaServices.includes(serviceId)) {
+      // Use Hedera Agent Kit for on-chain services
+      const { runHederaAgent } = await import('./tools/hederaAgent.js');
+      const reply = await runHederaAgent(lastMessage, accountId || '1');
+      res.json({ reply });
+    } else {
+      // Use Groq for data/info services
+      const llm = new ChatGroq({ model: 'llama-3.1-8b-instant', apiKey: process.env.GROQ_API_KEY });
+      const response = await llm.invoke([
+        { role: 'system', content: `You are HashPay agent. User paid for ${services[serviceId]?.name}. Be helpful and concise.` },
+        ...messages
+      ]);
+      res.json({ reply: response.content });
+    }
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
