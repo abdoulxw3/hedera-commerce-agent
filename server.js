@@ -13,6 +13,31 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+// Track paid sessions: { accountId_serviceId: { timestamp, txId } }
+const paidSessions = new Map();
+
+function getSessionKey(accountId, serviceId) {
+  return `${accountId}_${serviceId}`;
+}
+
+function markPaid(accountId, serviceId, txId) {
+  paidSessions.set(getSessionKey(accountId, serviceId), {
+    timestamp: Date.now(),
+    txId,
+    expiresAt: Date.now() + 3 * 60 * 60 * 1000 // 3 hours
+  });
+}
+
+function hasPaid(accountId, serviceId) {
+  const session = paidSessions.get(getSessionKey(accountId, serviceId));
+  if (!session) return false;
+  if (Date.now() > session.expiresAt) {
+    paidSessions.delete(getSessionKey(accountId, serviceId));
+    return false;
+  }
+  return true;
+}
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
 app.use(express.json());
@@ -29,12 +54,27 @@ app.post('/verify-payment', async (req, res) => {
   if (!senderAccountId || !serviceId) return res.status(400).json({ error: 'Missing fields' });
   const service = services[serviceId];
   if (!service) return res.status(404).json({ error: 'Service not found' });
-  res.json(await verifyTransaction(senderAccountId, process.env.ACCOUNT_ID, service.requiredHbar));
+  
+  // Check if already paid in session
+  if (hasPaid(senderAccountId, serviceId)) {
+    return res.json({ verified: true, message: 'Session active', cached: true });
+  }
+  
+  const result = await verifyTransaction(senderAccountId, process.env.ACCOUNT_ID, service.requiredHbar);
+  if (result.verified) {
+    markPaid(senderAccountId, serviceId, result.txId);
+  }
+  res.json(result);
 });
 
 app.post('/chat', async (req, res) => {
   const { messages, serviceId, accountId } = req.body;
-  if (!messages || !serviceId) return res.status(400).json({ error: 'Missing fields' });
+  if (!messages || !serviceId || !accountId) return res.status(400).json({ error: 'Missing fields' });
+  
+  if (!hasPaid(accountId, serviceId)) {
+    return res.status(402).json({ error: 'Payment required. Please pay for this service first.' });
+  }
+  
   try {
     const lastMessage = messages[messages.length - 1]?.content || '';
     const hederaServices = ['hcs-logger', 'token-creator', 'nft-minter'];
@@ -63,8 +103,12 @@ app.post('/execute', async (req, res) => {
   if (!serviceId || !accountId) return res.status(400).json({ error: 'Missing fields' });
   const service = services[serviceId];
   if (!service) return res.status(404).json({ error: 'Service not found' });
-  const verified = await verifyTransaction(accountId, process.env.ACCOUNT_ID, service.requiredHbar);
-  if (!verified.verified) return res.status(402).json({ error: verified.message });
+  
+  if (!hasPaid(accountId, serviceId)) {
+    const verified = await verifyTransaction(accountId, process.env.ACCOUNT_ID, service.requiredHbar);
+    if (!verified.verified) return res.status(402).json({ error: verified.message });
+    markPaid(accountId, serviceId, verified.txId);
+  }
   let result;
   if (serviceId === 'hcs-logger') result = await logToHCS(extra || 'Hello Hedera');
   else if (serviceId === 'token-creator') { const [n,s,sup] = (extra||'MyToken,MTK,1000').split(','); result = await createToken(n?.trim(),s?.trim(),parseInt(sup)); }
