@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
-export async function verifyTransaction(senderAccountId, receiverAccountId, requiredHbar, windowSeconds = 3600) {
+export async function verifyTransaction(senderAccountId, receiverAccountId, requiredHbar, usedTxIds = new Set(), windowSeconds = 3600) {
   try {
     const url = `https://testnet.mirrornode.hedera.com/api/v1/transactions?account.id=${receiverAccountId}&type=credit&limit=25&order=desc`;
     const response = await fetch(url);
@@ -14,11 +14,11 @@ export async function verifyTransaction(senderAccountId, receiverAccountId, requ
     for (const tx of transactions) {
       const txTime = parseFloat(tx.consensus_timestamp);
       if (now - txTime > windowSeconds) continue;
+      if (usedTxIds.has(tx.transaction_id)) continue; // skip already used
 
       for (const transfer of tx.transfers || []) {
         if (transfer.account === receiverAccountId && transfer.amount >= requiredTinybars) {
-          // Check if sender matches
-          const senderTransfer = tx.transfers.find(t => 
+          const senderTransfer = tx.transfers.find(t =>
             t.account === senderAccountId && t.amount < 0
           );
           if (senderTransfer) {
@@ -26,7 +26,6 @@ export async function verifyTransaction(senderAccountId, receiverAccountId, requ
               verified: true,
               txId: tx.transaction_id,
               amount: transfer.amount / 100_000_000,
-              timestamp: tx.consensus_timestamp,
               message: `Payment verified: ${transfer.amount / 100_000_000} HBAR received`
             };
           }

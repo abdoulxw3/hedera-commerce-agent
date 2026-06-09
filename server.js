@@ -15,16 +15,18 @@ dotenv.config();
 
 // Track paid sessions: { accountId_serviceId: { timestamp, txId } }
 const paidSessions = new Map();
+const usedTxIds = new Set(); // prevent reuse of same tx for multiple services
 
 function getSessionKey(accountId, serviceId) {
   return `${accountId}_${serviceId}`;
 }
 
 function markPaid(accountId, serviceId, txId) {
+  usedTxIds.add(txId); // mark tx as used
   paidSessions.set(getSessionKey(accountId, serviceId), {
     timestamp: Date.now(),
     txId,
-    expiresAt: Date.now() + 3 * 60 * 60 * 1000 // 3 hours
+    expiresAt: Date.now() + 3 * 60 * 60 * 1000
   });
 }
 
@@ -60,7 +62,7 @@ app.post('/verify-payment', async (req, res) => {
     return res.json({ verified: true, message: 'Session active', cached: true });
   }
   
-  const result = await verifyTransaction(senderAccountId, process.env.ACCOUNT_ID, service.requiredHbar);
+  const result = await verifyTransaction(senderAccountId, process.env.ACCOUNT_ID, service.requiredHbar, usedTxIds);
   if (result.verified) {
     markPaid(senderAccountId, serviceId, result.txId);
   }
