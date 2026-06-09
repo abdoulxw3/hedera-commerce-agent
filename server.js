@@ -72,29 +72,54 @@ app.post('/verify-payment', async (req, res) => {
 app.post('/chat', async (req, res) => {
   const { messages, serviceId, accountId } = req.body;
   if (!messages || !serviceId || !accountId) return res.status(400).json({ error: 'Missing fields' });
-  
-  // Verify payment from Mirror Node (handles server restarts)
+
   if (!hasPaid(accountId, serviceId)) {
-    const service_check = services[serviceId];
-    const check = await verifyTransaction(accountId, process.env.ACCOUNT_ID, service_check.requiredHbar, usedTxIds);
-    if (!check.verified) return res.status(402).json({ error: 'Payment required for ' + service_check.name });
+    const svc = services[serviceId];
+    const check = await verifyTransaction(accountId, process.env.ACCOUNT_ID, svc.requiredHbar, usedTxIds);
+    if (!check.verified) return res.status(402).json({ error: 'Payment required for ' + svc.name });
     markPaid(accountId, serviceId, check.txId);
   }
-  
+
   try {
     const lastMessage = messages[messages.length - 1]?.content || '';
-    const hederaServices = ['hcs-logger', 'token-creator', 'nft-minter'];
-    
-    if (hederaServices.includes(serviceId)) {
-      // Use Hedera Agent Kit for on-chain services
-      const { runHederaAgent } = await import('./tools/hederaAgent.js');
-      const reply = await runHederaAgent(lastMessage, accountId || '1');
-      res.json({ reply });
+    const llm = new ChatGroq({ model: 'llama-3.1-8b-instant', apiKey: process.env.GROQ_API_KEY });
+
+    if (serviceId === 'hcs-logger') {
+      const msgMatch = lastMessage.match(/(?:log|store|save|write)[:\s]+["']?(.+?)["']?$/i);
+      const msgToLog = msgMatch ? msgMatch[1] : lastMessage;
+      const result = await logToHCS(msgToLog);
+      res.json({ reply: result.message });
+
+    } else if (serviceId === 'token-creator') {
+      const nameMatch = lastMessage.match(/(?:name|called?)[:\s]+([A-Za-z]+)/i);
+      const symbolMatch = lastMessage.match(/(?:symbol|ticker)[:\s]+([A-Z]+)/i);
+      const supplyMatch = lastMessage.match(/(?:supply|amount)[:\s]+(\d+)/i);
+      const name = nameMatch ? nameMatch[1] : 'MyToken';
+      const symbol = symbolMatch ? symbolMatch[1] : 'MTK';
+      const supply = supplyMatch ? parseInt(supplyMatch[1]) : 1000;
+      const result = await createToken(name, symbol, supply);
+      res.json({ reply: result.message });
+
+    } else if (serviceId === 'nft-minter') {
+      const nameMatch = lastMessage.match(/(?:name|called?|collection)[:\s]+([A-Za-z]+)/i);
+      const symbolMatch = lastMessage.match(/(?:symbol)[:\s]+([A-Z]+)/i);
+      const name = nameMatch ? nameMatch[1] : 'MyNFT';
+      const symbol = symbolMatch ? symbolMatch[1] : 'MNFT';
+      const result = await mintNFT(name, symbol);
+      res.json({ reply: result.message });
+
+    } else if (serviceId === 'defi-rates') {
+      const result = await getDefiRates();
+      res.json({ reply: result.message });
+
     } else {
-      // Use Groq for data/info services
-      const llm = new ChatGroq({ model: 'llama-3.1-8b-instant', apiKey: process.env.GROQ_API_KEY });
+      const prompts = {
+        'weather-api': 'You are a weather assistant. Provide helpful weather information and forecasts.',
+        'market-data': 'You are a crypto market analyst. Provide market insights, prices and trends.',
+        'ai-reports': 'You are an AI research analyst. Generate detailed reports on any topic requested.'
+      };
       const response = await llm.invoke([
-        { role: 'system', content: `You are HashPay agent. User paid for ${services[serviceId]?.name}. Be helpful and concise.` },
+        { role: 'system', content: prompts[serviceId] || 'You are HashPay AI agent. Be helpful and concise.' },
         ...messages
       ]);
       res.json({ reply: response.content });
@@ -103,6 +128,7 @@ app.post('/chat', async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
+
 
 app.post('/execute', async (req, res) => {
   const { serviceId, accountId, extra } = req.body;
