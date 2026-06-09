@@ -246,17 +246,11 @@ function selectService(id){
 async function payWithWallet(){
   if(!currentService)return;
   const status=document.getElementById('payStatus');
-  status.className='status-msg info';status.style.display='block';
-  status.textContent='⏳ Requesting wallet signature...';
-  const result=await window.signAndPay(currentService.costNum);
-  if(result){
-    status.className='status-msg success';
-    status.textContent='✅ Signed! Verifying on-chain...';
-    setTimeout(()=>verifyPayment(),4000);
-  } else {
-    status.style.display='none';
-  }
+  status.className='status-msg info';
+  status.style.display='block';
+  status.textContent='Open HashPack and send '+currentService.costNum+' HBAR to 0.0.9100611, then tap "Already paid — Verify".';
 }
+
 
 async function verifyPayment(){
   const status=document.getElementById('payStatus');
