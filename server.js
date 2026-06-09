@@ -85,3 +85,128 @@ app.get('/evm-address/:accountId', async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`HashPay running on port ${PORT}`));
+
+// ============================================
+// x402 - HTTP Payment Required Protocol
+// ============================================
+app.get('/api/services/:serviceId', async (req, res) => {
+  const { serviceId } = req.params;
+  const service = services[serviceId];
+  if (!service) return res.status(404).json({ error: 'Service not found' });
+
+  // Return 402 with HBAR payment requirements
+  res.status(402).json({
+    x402Version: 1,
+    error: 'Payment Required',
+    accepts: [{
+      scheme: 'hedera-hbar',
+      network: 'hedera-testnet',
+      maxAmountRequired: String(service.requiredHbar),
+      resource: `https://hashpay.up.railway.app/api/services/${serviceId}/access`,
+      description: `Pay ${service.requiredHbar} HBAR to access ${service.name}`,
+      mimeType: 'application/json',
+      payTo: process.env.ACCOUNT_ID,
+      currency: 'HBAR',
+      amount: service.requiredHbar,
+      extra: {
+        name: service.name,
+        network: 'testnet',
+        chainId: 'hedera:testnet'
+      }
+    }]
+  });
+});
+
+app.post('/api/services/:serviceId/access', async (req, res) => {
+  const { serviceId } = req.params;
+  const { senderAccountId, txId } = req.body;
+  if (!senderAccountId) return res.status(400).json({ error: 'senderAccountId required' });
+  const service = services[serviceId];
+  if (!service) return res.status(404).json({ error: 'Service not found' });
+  const verified = await verifyTransaction(senderAccountId, process.env.ACCOUNT_ID, service.requiredHbar);
+  if (!verified.verified) return res.status(402).json({ error: verified.message });
+  res.json({ success: true, service: service.name, content: service.content });
+});
+
+// ============================================
+// UCP - Universal Commerce Protocol Manifest
+// ============================================
+app.get('/.well-known/ucp', (req, res) => {
+  res.json({
+    version: '1.0',
+    name: 'HashPay',
+    description: 'Payment-gated services on the Hedera network',
+    url: 'https://hashpay.up.railway.app',
+    capabilities: {
+      checkout: {
+        endpoint: '/checkout',
+        methods: ['POST']
+      },
+      discovery: {
+        endpoint: '/api/services',
+        methods: ['GET']
+      },
+      payment: {
+        schemes: ['hedera-hbar'],
+        network: 'hedera-testnet',
+        currency: 'HBAR'
+      }
+    },
+    services: Object.entries(services).map(([id, s]) => ({
+      id,
+      name: s.name,
+      price: s.requiredHbar,
+      currency: 'HBAR',
+      endpoint: `/api/services/${id}`
+    }))
+  });
+});
+
+// ============================================
+// ACP - Agentic Commerce Protocol
+// ============================================
+app.post('/checkout', async (req, res) => {
+  const { serviceId, buyerAccountId } = req.body;
+  if (!serviceId || !buyerAccountId) return res.status(400).json({ error: 'Missing fields' });
+  const service = services[serviceId];
+  if (!service) return res.status(404).json({ error: 'Service not found' });
+  const checkoutId = `chk_${Date.now()}_${serviceId}`;
+  res.json({
+    checkoutId,
+    status: 'pending',
+    serviceId,
+    buyerAccountId,
+    amount: service.requiredHbar,
+    currency: 'HBAR',
+    payTo: process.env.ACCOUNT_ID,
+    expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+    completeUrl: `/checkout/${checkoutId}/complete`
+  });
+});
+
+app.post('/checkout/:checkoutId/complete', async (req, res) => {
+  const { buyerAccountId, serviceId } = req.body;
+  if (!buyerAccountId || !serviceId) return res.status(400).json({ error: 'Missing fields' });
+  const service = services[serviceId];
+  if (!service) return res.status(404).json({ error: 'Service not found' });
+  const verified = await verifyTransaction(buyerAccountId, process.env.ACCOUNT_ID, service.requiredHbar);
+  if (!verified.verified) return res.status(402).json({ error: verified.message });
+  res.json({
+    checkoutId: req.params.checkoutId,
+    status: 'complete',
+    service: service.name,
+    txId: verified.txId,
+    access: service.content
+  });
+});
+
+// List all services (for UCP discovery)
+app.get('/api/services', (req, res) => {
+  res.json(Object.entries(services).map(([id, s]) => ({
+    id,
+    name: s.name,
+    price: s.requiredHbar,
+    currency: 'HBAR',
+    endpoint: `/api/services/${id}`
+  })));
+});
