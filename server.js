@@ -84,46 +84,62 @@ app.post('/chat', async (req, res) => {
     const lastMessage = messages[messages.length - 1]?.content || '';
     const llm = new ChatGroq({ model: 'llama-3.1-8b-instant', apiKey: process.env.GROQ_API_KEY });
 
-    if (serviceId === 'hcs-logger') {
-      const msgMatch = lastMessage.match(/(?:log|store|save|write)[:\s]+["']?(.+?)["']?$/i);
-      const msgToLog = msgMatch ? msgMatch[1] : lastMessage;
+    const storeIntent = /^(store|log|save|record|write)[\s:]/i.test(lastMessage.trim());
+    const tokenIntent = /\b(create|make|deploy)\s+(a\s+)?token\b/i.test(lastMessage);
+    const nftIntent = /\b(mint|create|make)\s+(an?\s+)?nft\b/i.test(lastMessage);
+
+    if (serviceId === 'hcs-logger' && storeIntent) {
+      const msgMatch = lastMessage.match(/^(store|log|save|record|write)[\s:]+["']?(.+?)["']?$/i);
+      const msgToLog = msgMatch ? msgMatch[2].trim() : lastMessage;
       const result = await logToHCS(msgToLog);
-      res.json({ reply: result.message });
+      return res.json({ reply: result.message });
+    }
 
-    } else if (serviceId === 'token-creator') {
-      const nameMatch = lastMessage.match(/(?:name|called?)[:\s]+([A-Za-z]+)/i);
-      const symbolMatch = lastMessage.match(/(?:symbol|ticker)[:\s]+([A-Z]+)/i);
-      const supplyMatch = lastMessage.match(/(?:supply|amount)[:\s]+(\d+)/i);
-      const name = nameMatch ? nameMatch[1] : 'MyToken';
-      const symbol = symbolMatch ? symbolMatch[1] : 'MTK';
-      const supply = supplyMatch ? parseInt(supplyMatch[1]) : 1000;
-      const result = await createToken(name, symbol, supply);
-      res.json({ reply: result.message });
+    if (serviceId === 'token-creator' && tokenIntent) {
+      const nameMatch = lastMessage.match(/name[\s:]+([A-Za-z0-9]+)/i);
+      const symbolMatch = lastMessage.match(/symbol[\s:]+([A-Za-z0-9]+)/i);
+      const supplyMatch = lastMessage.match(/supply[\s:]+(\d+)/i);
+      if (!nameMatch || !symbolMatch) {
+        return res.json({ reply: 'Please provide token details. Example:\n"create token name: MyToken symbol: MTK supply: 1000"' });
+      }
+      const result = await createToken(nameMatch[1], symbolMatch[1].toUpperCase(), supplyMatch ? parseInt(supplyMatch[1]) : 1000);
+      return res.json({ reply: result.message });
+    }
 
-    } else if (serviceId === 'nft-minter') {
-      const nameMatch = lastMessage.match(/(?:name|called?|collection)[:\s]+([A-Za-z]+)/i);
-      const symbolMatch = lastMessage.match(/(?:symbol)[:\s]+([A-Z]+)/i);
-      const name = nameMatch ? nameMatch[1] : 'MyNFT';
-      const symbol = symbolMatch ? symbolMatch[1] : 'MNFT';
-      const result = await mintNFT(name, symbol);
-      res.json({ reply: result.message });
+    if (serviceId === 'nft-minter' && nftIntent) {
+      const nameMatch = lastMessage.match(/(?:name|called?|collection)[\s:]+([A-Za-z0-9]+)/i);
+      const symbolMatch = lastMessage.match(/symbol[\s:]+([A-Za-z0-9]+)/i);
+      if (!nameMatch) {
+        return res.json({ reply: 'Please provide NFT details. Example:\n"mint NFT name: MyArt symbol: MART"' });
+      }
+      const result = await mintNFT(nameMatch[1], symbolMatch ? symbolMatch[1].toUpperCase() : 'NFT');
+      return res.json({ reply: result.message });
+    }
 
-    } else if (serviceId === 'defi-rates') {
-      const result = await getDefiRates();
-      res.json({ reply: result.message });
-
-    } else {
-      const prompts = {
-        'weather-api': 'You are a weather assistant. Provide helpful weather information and forecasts.',
-        'market-data': 'You are a crypto market analyst. Provide market insights, prices and trends.',
-        'ai-reports': 'You are an AI research analyst. Generate detailed reports on any topic requested.'
-      };
+    if (serviceId === 'defi-rates') {
+      const ratesResult = await getDefiRates();
       const response = await llm.invoke([
-        { role: 'system', content: prompts[serviceId] || 'You are HashPay AI agent. Be helpful and concise.' },
+        { role: 'system', content: 'You are a DeFi rates assistant. Here is the current Hedera market data: ' + ratesResult.message + '\nAnswer the user based on this data.' },
         ...messages
       ]);
-      res.json({ reply: response.content });
+      return res.json({ reply: response.content });
     }
+
+    const prompts = {
+      'hcs-logger': 'You are an HCS Message Logger assistant. Help users store messages on Hedera. To store say: "log: your message". For normal chat, just respond helpfully without storing anything.',
+      'token-creator': 'You are an HTS Token Creator assistant. Help users create tokens on Hedera. To create say: "create token name: X symbol: Y supply: Z". For normal chat, just respond helpfully.',
+      'nft-minter': 'You are an NFT Minter assistant on Hedera. Help users mint NFTs. To mint say: "mint NFT name: X symbol: Y". For normal chat, just respond helpfully.',
+      'weather-api': 'You are a premium weather assistant. Provide helpful weather information and forecasts for any location.',
+      'market-data': 'You are a crypto market analyst. Provide market insights, price analysis and trends. Focus on Hedera/HBAR when relevant.',
+      'ai-reports': 'You are an AI research analyst. Generate detailed reports and analysis on any topic requested.'
+    };
+
+    const response = await llm.invoke([
+      { role: 'system', content: prompts[serviceId] || 'You are HashPay AI agent. Be helpful and concise.' },
+      ...messages
+    ]);
+    res.json({ reply: response.content });
+
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
