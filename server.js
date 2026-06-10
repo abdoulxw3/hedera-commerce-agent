@@ -73,13 +73,6 @@ app.post('/chat', async (req, res) => {
   const { messages, serviceId, accountId } = req.body;
   if (!messages || !serviceId || !accountId) return res.status(400).json({ error: 'Missing fields' });
 
-  if (!hasPaid(accountId, serviceId)) {
-    const svc = services[serviceId];
-    const check = await verifyTransaction(accountId, process.env.ACCOUNT_ID, svc.requiredHbar, usedTxIds);
-    if (!check.verified) return res.status(402).json({ error: 'Payment required for ' + svc.name });
-    markPaid(accountId, serviceId, check.txId);
-  }
-
   try {
     const lastMessage = messages[messages.length - 1]?.content || '';
     const llm = new ChatGroq({ model: 'llama-3.1-8b-instant', apiKey: process.env.GROQ_API_KEY });

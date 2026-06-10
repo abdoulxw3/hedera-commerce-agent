@@ -1,5 +1,24 @@
 grep -n "showScreen\|paymentScreen\|active" public/index.html | head -15
-⁶git add . && git commit -m "feat: smart chat routing with real service execution" && git push origin Master# ⚡ HashPay — Payment-Gated Services on Hedera
+⁶git add . && git commit -m "feat: smart chat routing with real service execution" && git push origin Mastercurl -X POST https://hashpay.up.railway.app/chat \
+  -H "Content-Type: application/json" \
+    -d '{"messages":[{"role":"user","content":"hello"}],"serviceId":"weather-api","accountId":"test"}'node << 'EOF'
+    import { readFileSync, writeFileSync } from 'fs';
+    let c = readFileSync('server.js', 'utf8');
+    // Find the chat endpoint and remove payment check
+    c = c.replace(
+    `  if (!hasPaid(accountId, serviceId)) {
+        const svc = services[serviceId];
+            const check = await verifyTransaction(accountId, process.env.ACCOUNT_ID, svc.requiredHbar, usedTxIds);
+                if (!check.verified) return res.status(402).json({ error: 'Payment required for ' + svc.name });
+                    markPaid(accountId, serviceId, check.txId);
+                      }
+                      
+                        try {`,
+                        `  try {`
+                        );
+                        writeFileSync('server.js', c);
+                        console.log('Done:', c.includes("try {"));
+                        EOF# ⚡ HashPay — Payment-Gated Services on Hedera
 
 > A full-stack Web3 commerce agent built on the Hedera network. Pay HBAR, get instant access to on-chain services. Implements x402, UCP, and ACP agentic commerce protocols.
 
