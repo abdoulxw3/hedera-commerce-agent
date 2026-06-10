@@ -179,6 +179,14 @@ app.get('/evm-address/:accountId', async (req, res) => {
   }
 });
 
+app.get('/debug-env', (req, res) => {
+  res.json({ 
+    groq_key_length: process.env.GROQ_API_KEY?.length,
+    groq_key_prefix: process.env.GROQ_API_KEY?.substring(0, 10),
+    account_id: process.env.ACCOUNT_ID
+  });
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`HashPay running on port ${PORT}`));
 
