@@ -13,6 +13,10 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+// Config with fallback
+const GROQ_KEY = process.env.GROQ_API_KEY_NEW || process.env.GROQ_API_KEY;
+
+
 // Track paid sessions: { accountId_serviceId: { timestamp, txId } }
 const paidSessions = new Map();
 const usedTxIds = new Set(); // prevent reuse of same tx for multiple services
@@ -75,7 +79,7 @@ app.post('/chat', async (req, res) => {
 
   try {
     const lastMessage = messages[messages.length - 1]?.content || '';
-    const llm = new ChatGroq({ model: 'llama-3.1-8b-instant', apiKey: process.env.GROQ_API_KEY });
+    const llm = new ChatGroq({ model: 'llama-3.1-8b-instant', apiKey: GROQ_KEY });
 
     const storeIntent = /^(store|log|save|record|write)[\s:]/i.test(lastMessage.trim());
     const tokenIntent = /\b(create|make|deploy)\s+(a\s+)?token\b/i.test(lastMessage);
