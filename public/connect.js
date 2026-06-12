@@ -1,15 +1,15 @@
 const PROJECT_ID = '1eb25284f2c2cc52088780c04246372d';
-window.wcProvider = null;
+window.dAppConnector = null;
 window.wcSession = null;
 
 window.connectWallet = async function() {
   document.getElementById('wcModal').classList.add('open');
-  document.getElementById('qrContainer').innerHTML = '<p style="color:#888;font-size:13px">Initializing...</p>';
+  document.getElementById('qrBox').innerHTML = '<p style="color:rgba(255,255,255,0.3);font-size:13px">Initializing...</p>';
 
   try {
     const { default: UniversalProvider } = await import('/wc.bundle.js');
 
-    window.wcProvider = await UniversalProvider.init({
+    window.dAppConnector = await UniversalProvider.init({
       projectId: PROJECT_ID,
       metadata: {
         name: 'HashPay',
@@ -19,54 +19,46 @@ window.connectWallet = async function() {
       }
     });
 
-    window.wcProvider.on('display_uri', (uri) => {
-      document.getElementById('qrContainer').innerHTML = `
+    window.dAppConnector.on('display_uri', (uri) => {
+      document.getElementById('qrBox').innerHTML = `
         <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(uri)}"
              style="border-radius:12px;width:200px;height:200px"/>
-        <p style="color:#666;font-size:11px;margin-top:8px">Scan with HashPack</p>`;
-      const btn = document.getElementById('deepLinkBtn');
-      if(btn){ btn.href = 'hashpack://wc?uri=' + encodeURIComponent(uri); btn.style.display = 'block'; }
+        <p style="color:rgba(255,255,255,0.4);font-size:11px;margin-top:8px">Scan with HashPack</p>`;
+      const btn = document.getElementById('openHpBtn');
+      btn.href = `hashpack://wc?uri=${encodeURIComponent(uri)}`;
+      btn.style.display = 'block';
     });
 
-    window.wcSession = await window.wcProvider.connect({
+    window.wcSession = await window.dAppConnector.connect({
       optionalNamespaces: {
         hedera: {
-          methods: ['hedera_signAndExecuteTransaction'],
+          methods: ['hedera_signAndExecuteTransaction', 'hedera_getNodeAddresses'],
           chains: ['hedera:testnet'],
           events: []
         }
       }
     });
 
-    console.log('WC Session:', JSON.stringify(window.wcSession?.namespaces));
-
-    const hederaAccounts = window.wcSession?.namespaces?.hedera?.accounts;
-    if (hederaAccounts?.length > 0) {
-      const accountId = hederaAccounts[0].split(':').pop();
+    const accounts = window.wcSession?.namespaces?.hedera?.accounts;
+    if (accounts?.length > 0) {
+      const accountId = accounts[0].split(':').pop();
       window.setConnectedAccount(accountId);
     }
 
   } catch(e) {
-    console.error('WC Error:', e);
-    document.getElementById('qrContainer').innerHTML =
+    document.getElementById('qrBox').innerHTML =
       `<p style="color:#f87171;font-size:13px">Error: ${e.message}</p>`;
   }
 }
 
 window.signAndPay = async function(costNum) {
-  console.log('signAndPay called:', costNum, window.connectedAccount, !!window.wcProvider, !!window.wcSession);
-
-  if (!window.wcProvider) {
-    window.showNotify('Wallet not connected via WalletConnect. Please reconnect.');
-    return false;
-  }
-
-  if (!window.wcSession) {
-    window.showNotify('No active session. Please reconnect wallet.');
+  if (!window.dAppConnector || !window.wcSession) {
+    window.showNotify('Please connect via WalletConnect QR first');
     return false;
   }
 
   try {
+    // Get serialized transaction from backend
     const res = await fetch('/build-transfer', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -75,23 +67,27 @@ window.signAndPay = async function(costNum) {
         amount: costNum
       })
     });
-    const data = await res.json();
-    if (data.error) throw new Error(data.error);
+    const { txBytes, error } = await res.json();
+    if (error) throw new Error(error);
 
-    const result = await window.wcProvider.request({
+    // Use HIP-820 native Hedera signing
+    const network = 'testnet';
+    const signerAccountId = `hedera:${network}:${window.connectedAccount}`;
+
+    const result = await window.dAppConnector.request({
       topic: window.wcSession.topic,
-      chainId: 'hedera:testnet',
+      chainId: `hedera:${network}`,
       request: {
         method: 'hedera_signAndExecuteTransaction',
-        params: { transactionList: data.txBytes }
+        params: {
+          signerAccountId,
+          transactionList: txBytes
+        }
       }
     });
 
-    console.log('TX Result:', result);
     return result;
-
   } catch(e) {
-    console.error('signAndPay error:', e);
     window.showNotify('Error: ' + e.message);
     return false;
   }
