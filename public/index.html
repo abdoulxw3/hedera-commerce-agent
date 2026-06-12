@@ -155,10 +155,11 @@ header{padding:16px 24px;border-bottom:1px solid rgba(255,255,255,0.06);display:
   <div class="modal-box">
     <h3>Connect Wallet</h3>
     <p class="sub">Scan QR with HashPack or enter manually</p>
+    <button class="open-hp-btn" style="display:block;margin-bottom:12px" id="openHpBtn" onclick="window.connectWallet()">🔗 Connect with HashPack</button>
+    <div class="divider"><span>or scan QR code</span></div>
     <div class="qr-box" id="qrBox">
-      <p style="color:rgba(255,255,255,0.3);font-size:13px">Generating connection...</p>
+      <p style="color:rgba(255,255,255,0.3);font-size:13px">Click Connect above to generate QR</p>
     </div>
-    <button class="open-hp-btn" id="openHpBtn">Open HashPack App</button>
     <div class="divider"><span>or enter manually</span></div>
     <input class="manual-input" id="manualInput" placeholder="0.0.xxxxx"/>
     <button class="manual-btn" onclick="confirmManual()">Connect with Account ID</button>
