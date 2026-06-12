@@ -22,8 +22,18 @@
     }
   });
   window.appKitModal = modal;
-  modal.subscribeAccount(a => {
-    if (a?.address) window.setConnectedAccount(a.address);
+  modal.subscribeAccount(async a => {
+    if (a?.address) {
+      // Try to resolve EVM address to Hedera account ID
+      try {
+        const res = await fetch('https://testnet.mirrornode.hedera.com/api/v1/accounts/' + a.address);
+        const data = await res.json();
+        const hederaId = data.account || a.address;
+        window.setConnectedAccount(hederaId);
+      } catch(e) {
+        window.setConnectedAccount(a.address);
+      }
+    }
   });
   window.openAppKit = () => modal.open();
 </script>
