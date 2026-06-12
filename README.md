@@ -1,4 +1,4 @@
-##⚡ HashPay — Payment-Gated Services on Hedera
+⚡ HashPay — Payment-Gated Services on Hedera
 
 A full-stack Web3 commerce agent built on the Hedera network. Pay HBAR, get instant access to on-chain services. Implements x402, UCP, and ACP agentic commerce protocols.
 
@@ -46,6 +46,7 @@ Hedera Agent Kit (LangChain + LangGraph)
 ↓
 
 ##Service Layer:
+
 ├── HCS Logger      → Hedera Consensus Service
 ├── Token Creator   → Hedera Token Service
 ├── NFT Minter      → Hedera Token Service
@@ -58,5 +59,6 @@ PRIVATE_KEY="your_ecdsa_private_key"
 GROQ_API_KEY="gsk_..."
 
 node server.js
+
 📄 License
 MIT
