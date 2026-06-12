@@ -1,6 +1,6 @@
-⚡ HashPay — Payment-Gated Services on Hedera
+##⚡ HashPay — Payment-Gated Services on Hedera
 
-> A full-stack Web3 commerce agent built on the Hedera network. Pay HBAR, get instant access to on-chain services. Implements x402, UCP, and ACP agentic commerce protocols.
+A full-stack Web3 commerce agent built on the Hedera network. Pay HBAR, get instant access to on-chain services. Implements x402, UCP, and ACP agentic commerce protocols.
 
 ## 🌐 Live Demo
 **[https://hashpay.up.railway.app](https://hashpay.up.railway.app)**
@@ -10,6 +10,7 @@
 HashPay is a payment-gated service platform powered by Hedera. Users connect their Hedera wallet, send HBAR, and the agent verifies the on-chain transaction before unlocking access — no middleman, no trust required.
 
 Built for the **Hedera AI Bounty Week 4 — Commerce Agent**.
+
 
 ## 🛠️ Services
 
@@ -22,6 +23,7 @@ Built for the **Hedera AI Bounty Week 4 — Commerce Agent**.
 | 🪙 HTS Token Creator | 2 HBAR | Create your own token on Hedera Token Service |
 | 🖼️ NFT Minter | 3 HBAR | Mint an NFT on Hedera |
 | 💹 DeFi Rates | 0.5 HBAR | Live DeFi rates from Hedera ecosystem |
+
 
 ## 🔄 How It Works
 Connect HashPack wallet via WalletConnect
@@ -42,7 +44,8 @@ HashPay Backend (Node.js + Express)
 ↓
 Hedera Agent Kit (LangChain + LangGraph)
 ↓
-Service Layer:
+
+##Service Layer:
 ├── HCS Logger      → Hedera Consensus Service
 ├── Token Creator   → Hedera Token Service
 ├── NFT Minter      → Hedera Token Service
