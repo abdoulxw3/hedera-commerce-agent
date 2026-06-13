@@ -277,19 +277,19 @@ async function payWithWallet() {
   el.className = 'status info';
   el.style.display = 'block';
 
-  if (window.dAppConnector && window.wcSession) {
-    el.textContent = '⏳ Requesting signature from HashPack...';
-    const result = await window.signAndPay(service.costNum);
-    if (result) {
-      el.className = 'status success';
-      el.textContent = '✅ Transaction signed! Verifying on-chain...';
-      setTimeout(() => verifyPayment(), 4000);
-      return;
-    }
-  }
 
-  el.textContent = 'Open HashPack → send ' + service.costNum + ' HBAR to 0.0.9100611 → tap "Already paid — Verify".';
-}
+
+
+
+
+
+
+
+
+
+
+
+
 
 async function verifyPayment() {
   if (!service || !account) return;
