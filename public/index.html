@@ -5,38 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>HashPay — Payment-Gated Services on Hedera</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<script type="module">
-  import { createAppKit } from 'https://cdn.jsdelivr.net/npm/@reown/appkit-cdn@1.6.8/dist/appkit.js';
-  const modal = createAppKit({
-    projectId: '1eb25284f2c2cc52088780c04246372d',
-    networks: [{
-      id: 296, name: 'Hedera Testnet',
-      nativeCurrency: { name: 'HBAR', symbol: 'HBAR', decimals: 8 },
-      rpcUrls: { default: { http: ['https://testnet.hashio.io/api'] } },
-      caipNetworkId: 'eip155:296', chainNamespace: 'eip155'
-    }],
-    metadata: {
-      name: 'HashPay', description: 'Payment-Gated Services on Hedera',
-      url: 'https://hashpay.up.railway.app',
-      icons: ['https://avatars.githubusercontent.com/u/116641441']
-    }
-  });
-  window.appKitModal = modal;
-  modal.subscribeAccount(async a => {
-    if (a?.address) {
-      // Try to resolve EVM address to Hedera account ID
-      try {
-        const res = await fetch('https://testnet.mirrornode.hedera.com/api/v1/accounts/' + a.address);
-        const data = await res.json();
-        const hederaId = data.account || a.address;
-        window.setConnectedAccount(hederaId);
-      } catch(e) {
-        window.setConnectedAccount(a.address);
-      }
-    }
-  });
-  window.openAppKit = () => modal.open();
-</script>
+
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:#070714;color:#fff;font-family:'Inter',sans-serif;min-height:100vh}
@@ -394,6 +363,38 @@ if (saved) {
 }
 
 fetch('/services').then(r => r.json()).then(s => { allServices = s; renderServices(); });
+</script>
+<script type="module">
+  import { createAppKit } from 'https://cdn.jsdelivr.net/npm/@reown/appkit-cdn@1.6.8/dist/appkit.js';
+  const modal = createAppKit({
+    projectId: '1eb25284f2c2cc52088780c04246372d',
+    networks: [{
+      id: 296, name: 'Hedera Testnet',
+      nativeCurrency: { name: 'HBAR', symbol: 'HBAR', decimals: 8 },
+      rpcUrls: { default: { http: ['https://testnet.hashio.io/api'] } },
+      caipNetworkId: 'eip155:296', chainNamespace: 'eip155'
+    }],
+    metadata: {
+      name: 'HashPay', description: 'Payment-Gated Services on Hedera',
+      url: 'https://hashpay.up.railway.app',
+      icons: ['https://avatars.githubusercontent.com/u/116641441']
+    }
+  });
+  window.appKitModal = modal;
+  modal.subscribeAccount(async a => {
+    if (a?.address) {
+      // Try to resolve EVM address to Hedera account ID
+      try {
+        const res = await fetch('https://testnet.mirrornode.hedera.com/api/v1/accounts/' + a.address);
+        const data = await res.json();
+        const hederaId = data.account || a.address;
+        window.setConnectedAccount(hederaId);
+      } catch(e) {
+        window.setConnectedAccount(a.address);
+      }
+    }
+  });
+  window.openAppKit = () => modal.open();
 </script>
 </body>
 </html>
