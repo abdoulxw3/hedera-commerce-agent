@@ -241,10 +241,19 @@ function selectService(id) {
 }
 
 async function payWithWallet() {
-  if (!service) return;
+  if (!service || !account) return;
   const el = document.getElementById('payStatus');
   el.className = 'status info';
   el.style.display = 'block';
+
+  if (window.appKitModal) {
+    el.textContent = '\ud83d\udd17 Opening wallet to sign transaction...';
+    notify('Complete payment in your wallet, then click Verify');
+  } else {
+    el.textContent = '\u26a1 Send ' + service.costNum + ' HBAR to 0.0.9100611, then click Verify below.';
+  }
+}
+
 
 
 
