@@ -47,12 +47,19 @@ Just:
 🛠️ Services
 
 Service| Cost| Description
+
 🌤️ Weather API| 1 HBAR| Premium weather data access
+
 📊 Market Data Feed| 2 HBAR| Live crypto market data
+
 🤖 AI Research Reports| 5 HBAR| AI-generated research reports
+
 📝 HCS Message Logger| 1 HBAR| Store messages on Hedera Consensus Service
+
 🪙 HTS Token Creator| 2 HBAR| Create tokens on Hedera Token Service
+
 🖼️ NFT Minter| 3 HBAR| Mint NFTs on Hedera
+
 💹 DeFi Rates| 0.5 HBAR| Live DeFi rates from the Hedera ecosystem
 
 ---
