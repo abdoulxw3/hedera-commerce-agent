@@ -39,7 +39,8 @@ window.signAndPay = async function(costNum) {
 
     return txHash;
   } catch(e) {
-    window.showNotify('Error: ' + e.message);
+    // Suppress technical error - fallback message in payWithWallet handles this
+      console.log('signAndPay error:', e.message);
     return false;
   }
 }
