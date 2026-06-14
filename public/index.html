@@ -240,17 +240,60 @@ function selectService(id) {
   showScreen('paymentScreen');
 }
 
+function getEvmProvider() {
+  const modal = window.appKitModal;
+  if (!modal) return null;
+  try {
+    if (typeof modal.getProvider === 'function') {
+      const p = modal.getProvider('eip155');
+      if (p) return p;
+    }
+  } catch(e) {}
+  try {
+    if (typeof modal.subscribeProviders === 'function') {
+      let found = null;
+      const unsub = modal.subscribeProviders((providers) => {
+        found = providers && (providers.eip155 || providers['eip155']);
+      });
+      if (typeof unsub === 'function') unsub();
+      if (found) return found;
+    }
+  } catch(e) {}
+  return null;
+}
+
 async function payWithWallet() {
   if (!service || !account) return;
   const el = document.getElementById('payStatus');
   el.className = 'status info';
   el.style.display = 'block';
 
-  if (window.appKitModal) {
-    el.textContent = '\ud83d\udd17 Opening wallet to sign transaction...';
-    notify('Complete payment in your wallet, then click Verify');
-  } else {
+  const provider = getEvmProvider();
+  const from = window.connectedEvmAddress;
+
+  if (!provider || !from) {
     el.textContent = '\u26a1 Send ' + service.costNum + ' HBAR to 0.0.9100611, then click Verify below.';
+    return;
+  }
+
+  try {
+    el.textContent = '\ud83d\udd17 Opening wallet to sign transaction...';
+    const toAddress = '0x' + (9100611).toString(16).padStart(40, '0');
+    const tinybars = Math.round(service.costNum * 1e8);
+    const weibarValue = BigInt(tinybars) * (10n ** 10n);
+    const valueHex = '0x' + weibarValue.toString(16);
+
+    const txHash = await provider.request({
+      method: 'eth_sendTransaction',
+      params: [{ from: from, to: toAddress, value: valueHex }]
+    });
+
+    el.className = 'status success';
+    el.textContent = '\u2705 Transaction sent! Click Verify below once it confirms.';
+    console.log('HashPay tx hash:', txHash);
+  } catch (e) {
+    el.className = 'status error';
+    el.textContent = '\u26a0\ufe0f Wallet signing failed (' + (e && e.message ? e.message : e) + '). Send manually to 0.0.9100611 and click Verify.';
   }
 }
 
@@ -392,6 +435,7 @@ fetch('/services').then(r => r.json()).then(s => { allServices = s; renderServic
   window.appKitModal = modal;
   modal.subscribeAccount(async a => {
     if (a?.address) {
+      window.connectedEvmAddress = a.address;
       // Try to resolve EVM address to Hedera account ID
       try {
         const res = await fetch('https://testnet.mirrornode.hedera.com/api/v1/accounts/' + a.address);
