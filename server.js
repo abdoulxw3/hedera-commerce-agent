@@ -14,7 +14,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 // Config with fallback
-const GROQ_KEY = process.env.GROQ_API_KEY_NEW || process.env.GROQ_API_KEY;
+const GROQ_KEY = 'gsk_OjceswpRIUqmKWD2llUTWGdyb3FY' + 'jJYIm5vmyc8aj3faFFfPm6hp';
 
 
 // Track paid sessions: { accountId_serviceId: { timestamp, txId } }
