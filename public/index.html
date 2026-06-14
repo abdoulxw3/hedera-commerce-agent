@@ -188,6 +188,7 @@ function notify(msg) {
   el.style.display = 'block';
   setTimeout(() => el.style.display = 'none', 3000);
 }
+window.showNotify = notify;
 
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
@@ -267,33 +268,15 @@ async function payWithWallet() {
   const el = document.getElementById('payStatus');
   el.className = 'status info';
   el.style.display = 'block';
+  el.textContent = '\ud83d\udd17 Opening wallet to sign transaction...';
 
-  const provider = getEvmProvider();
-  const from = window.connectedEvmAddress;
-
-  if (!provider || !from) {
-    el.textContent = '\u26a1 Send ' + service.costNum + ' HBAR to 0.0.9100611, then click Verify below.';
-    return;
-  }
-
-  try {
-    el.textContent = '\ud83d\udd17 Opening wallet to sign transaction...';
-    const toAddress = '0x' + (9100611).toString(16).padStart(40, '0');
-    const tinybars = Math.round(service.costNum * 1e8);
-    const weibarValue = BigInt(tinybars) * (10n ** 10n);
-    const valueHex = '0x' + weibarValue.toString(16);
-
-    const txHash = await provider.request({
-      method: 'eth_sendTransaction',
-      params: [{ from: from, to: toAddress, value: valueHex }]
-    });
-
+  const txHash = await window.signAndPay(service.costNum);
+  if (txHash) {
     el.className = 'status success';
     el.textContent = '\u2705 Transaction sent! Click Verify below once it confirms.';
-    console.log('HashPay tx hash:', txHash);
-  } catch (e) {
-    el.className = 'status error';
-    el.textContent = '\u26a0\ufe0f Wallet signing failed (' + (e && e.message ? e.message : e) + '). Send manually to 0.0.9100611 and click Verify.';
+  } else {
+    el.className = 'status info';
+    el.textContent = '\u26a1 If wallet did not open, send manually to 0.0.9100611 and click Verify.';
   }
 }
 

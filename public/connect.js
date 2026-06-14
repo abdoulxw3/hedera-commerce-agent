@@ -20,7 +20,7 @@ window.signAndPay = async function(costNum) {
       return false;
     }
 
-    const account = window.connectedAccount;
+    const account = window.connectedEvmAddress || window.connectedAccount;
     
     // Get receiver EVM address
     const evmRes = await fetch('/evm-address/0.0.9100611');
@@ -32,7 +32,7 @@ window.signAndPay = async function(costNum) {
       params: [{
         from: account,
         to: evmAddress,
-        value: '0x' + Math.floor(costNum * 1e8).toString(16),
+        value: '0x' + (BigInt(Math.round(costNum * 1e8)) * (10n ** 10n)).toString(16),
         gasLimit: '0x5208'
       }]
     });
