@@ -1,11 +1,28 @@
-⚡ HashPay — Payment-Gated Services on Hedera
+# ⚡ HashPay — Hedera Commerce Agent
 
-A full-stack Web3 commerce agent built on the Hedera network. Pay with HBAR and gain instant access to AI-powered and on-chain services.
+A payment-gated AI service marketplace built with the Hedera Agent Kit.
 
-HashPay demonstrates how agents can monetize services through verifiable blockchain payments using emerging agentic commerce standards including x402, UCP, and ACP.
+HashPay enables users and agents to purchase access to AI-powered and on-chain services using HBAR. Payments are verified on Hedera before capabilities are unlocked, creating a trustless commerce layer for agentic applications.
 
-Built for the Hedera AI Bounty — Commerce Agent Track.
+Built for the Hedera Commerce Agent Bounty and designed around emerging agent commerce standards including x402, UCP, and ACP.
 
+
+---
+
+## 🏆 Bounty Requirements
+
+HashPay satisfies the Hedera Commerce Agent requirements:
+
+- ✅ Built with Hedera Agent Kit
+- ✅ Hosted public UI
+- ✅ Wallet integration via HashPack + WalletConnect
+- ✅ Payment-gated capabilities using HBAR
+- ✅ Public GitHub repository
+- ✅ Live hosted demo
+- ✅ Agent-driven service execution
+- ✅ Hedera-native integrations (HCS & HTS)
+
+  
 ---
 
 🌐 Live Demo
@@ -44,7 +61,7 @@ Just:
 
 ---
 
-🛠️ Services
+## 🤖 Agent Capabilities
 
 Service| Cost| Description
 
@@ -153,11 +170,14 @@ node server.js
 
 ---
 
-🧰 Technology Stack
+## 🔗 Hedera Integrations/Technology Stack
 
-- Hedera SDK
+HashPay demonstrates real Hedera utility through:
+
 - Hedera Agent Kit
-- Hedera Mirror Node API
+- Hedera Mirror Node APIs
+- HBAR Payments
+- Hedera SDK
 - Hedera Consensus Service (HCS)
 - Hedera Token Service (HTS)
 - WalletConnect
