@@ -1,0 +1,22 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body, #root { height: 100%; width: 100%; overflow: hidden; }
+body { font-family: 'Inter', system-ui, sans-serif; background: #060612; color: #f1f0ff; }
+* { -webkit-tap-highlight-color: transparent; }
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(139,92,246,0.3); border-radius: 4px; }
+
+/* Mobile overrides */
+@media (max-width: 768px) {
+  .sidebar { width: 0 !important; overflow: hidden !important; border: none !important; }
+  .sidebar.open { width: 240px !important; position: fixed !important; top: 0; left: 0; height: 100%; z-index: 100; }
+  .live-sidebar { display: none !important; }
+  .stats-row { flex-wrap: wrap !important; }
+  .stats-row > div { min-width: calc(50% - 6px) !important; flex: none !important; }
+  .agent-grid { grid-template-columns: 1fr !important; }
+  .build-config { display: none !important; }
+  .build-config.open { display: flex !important; position: fixed !important; top: 0; right: 0; height: 100%; width: 85%; z-index: 100; background: #0a0a1c; }
+  .topbar-sub { display: none !important; }
+  .analytics-grid { grid-template-columns: 1fr !important; }
+  .earn-grid { grid-template-columns: 1fr !important; }
+}

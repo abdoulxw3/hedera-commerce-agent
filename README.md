@@ -58,7 +58,5 @@ ACCOUNT_ID="0.0.xxxxx"
 PRIVATE_KEY="your_ecdsa_private_key"
 GROQ_API_KEY="gsk_..."
 
-node server.js
-
 📄 License
 MIT
