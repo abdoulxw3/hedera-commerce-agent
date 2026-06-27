@@ -320,3 +320,82 @@ app.get('/api/services', (req, res) => {
 });
 // Wed Jun 10 10:00:52 UTC 2026
 // redeploy Wed Jun 10 10:12:59 UTC 2026
+
+// ── Mirror Node Live Feed ──────────────────────────────────────────────────
+const MIRROR = 'https://testnet.mirrornode.hedera.com/api/v1';
+const OPERATOR = process.env.ACCOUNT_ID || '0.0.9100611';
+
+app.get('/api/transactions', async (req, res) => {
+  try {
+    const limit = req.query.limit || 25;
+    const url = `${MIRROR}/transactions?account.id=${OPERATOR}&limit=${limit}&order=desc&transactiontype=CRYPTOTRANSFER`;
+    const response = await fetch(url);
+    const data = await response.json();
+
+    const txs = (data.transactions || []).map(tx => ({
+      id: tx.transaction_id,
+      time: tx.consensus_timestamp,
+      result: tx.result,
+      fee: tx.charged_tx_fee,
+      transfers: tx.transfers?.filter(t => t.account !== '0.0.98') || [],
+      memo: tx.memo_base64 ? Buffer.from(tx.memo_base64, 'base64').toString('utf8') : '',
+    }));
+
+    res.json({ transactions: txs, account: OPERATOR });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/stats', async (req, res) => {
+  try {
+    const [txRes, balRes] = await Promise.all([
+      fetch(`${MIRROR}/transactions?account.id=${OPERATOR}&limit=100&order=desc&transactiontype=CRYPTOTRANSFER`),
+      fetch(`${MIRROR}/accounts/${OPERATOR}`)
+    ]);
+    const txData = await txRes.json();
+    const balData = await balRes.json();
+
+    const txs = txData.transactions || [];
+    const totalVolume = txs.reduce((sum, tx) => {
+      const incoming = (tx.transfers || [])
+        .filter(t => t.account === OPERATOR && t.amount > 0)
+        .reduce((s, t) => s + t.amount, 0);
+      return sum + incoming;
+    }, 0);
+
+    res.json({
+      account: OPERATOR,
+      balance: balData.balance?.balance || 0,
+      balanceHbar: ((balData.balance?.balance || 0) / 1e8).toFixed(2),
+      recentTxCount: txs.length,
+      totalVolumeHbar: (totalVolume / 1e8).toFixed(2),
+      successRate: txs.length > 0
+        ? ((txs.filter(t => t.result === 'SUCCESS').length / txs.length) * 100).toFixed(1)
+        : '100',
+    });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/agents/registry', (req, res) => {
+  const registry = [
+    { id:'weather-api',    name:'Weather Oracle',        category:'Data',    price:1,   status:'active', hcsId:null },
+    { id:'market-data',    name:'Market Data Feed',      category:'DeFi',    price:2,   status:'active', hcsId:null },
+    { id:'ai-reports',     name:'AI Research Agent',     category:'AI',      price:5,   status:'active', hcsId:null },
+    { id:'hcs-logger',     name:'HCS Logger',            category:'Hedera',  price:1,   status:'active', hcsId:null },
+    { id:'token-creator',  name:'Token Creator',         category:'Tokens',  price:2,   status:'active', hcsId:null },
+    { id:'nft-minter',     name:'NFT Minter',            category:'NFTs',    price:3,   status:'active', hcsId:null },
+    { id:'defi-rates',     name:'DeFi Rates',            category:'DeFi',    price:0.5, status:'active', hcsId:null },
+    { id:'enterprise',     name:'Enterprise Agent',      category:'B2B',     price:10,  status:'active', hcsId:null },
+    { id:'mcp-agent',      name:'MCP Commerce Agent',    category:'AI',      price:3,   status:'active', hcsId:null },
+    { id:'hedera-explorer',name:'Hedera Explorer Agent', category:'Hedera',  price:1,   status:'coming', hcsId:null },
+    { id:'hbar-treasury',  name:'HBAR Treasury Agent',   category:'Data',    price:2,   status:'coming', hcsId:null },
+    { id:'governance',     name:'Governance Agent',      category:'Hedera',  price:2,   status:'coming', hcsId:null },
+    { id:'orchestrator',   name:'Multi-Agent Orchestrator', category:'AI',   price:5,   status:'coming', hcsId:null },
+    { id:'payment-gateway',name:'Payment Gateway Agent', category:'Payments',price:1,   status:'coming', hcsId:null },
+    { id:'policy-agent',   name:'Policy & Compliance',   category:'Utility', price:3,   status:'coming', hcsId:null },
+  ];
+  res.json({ agents: registry, total: registry.length, live: registry.filter(a=>a.status==='active').length });
+});
