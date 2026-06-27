@@ -14,18 +14,32 @@ const GRAD = "linear-gradient(135deg,#8b5cf6,#06b6d4)";
 const GRAD2 = "linear-gradient(135deg,rgba(139,92,246,0.2),rgba(6,182,212,0.1))";
 
 const AGENTS = [
-  { id:"weather",  icon:"🌤️", name:"Weather Oracle",     cat:"Data",   price:1,   stars:4.8, uses:1240, desc:"Real-time global weather data & forecasts for any location",      verified:true  },
-  { id:"market",   icon:"📊", name:"Market Data Feed",   cat:"DeFi",   price:2,   stars:4.6, uses:890,  desc:"Live crypto prices, volumes and market analytics",               verified:true  },
-  { id:"research", icon:"🤖", name:"AI Research Agent",  cat:"AI",     price:5,   stars:4.9, uses:430,  desc:"Deep AI-generated research reports on any topic on demand",      verified:true  },
-  { id:"hcs",      icon:"📝", name:"HCS Logger",         cat:"Hedera", price:1,   stars:4.7, uses:2100, desc:"Store messages permanently on Hedera Consensus Service",         verified:true  },
-  { id:"tokens",   icon:"🪙", name:"Token Creator",      cat:"Tokens", price:2,   stars:4.5, uses:670,  desc:"Launch your own HTS fungible token in seconds",                  verified:false },
-  { id:"nft",      icon:"🖼️", name:"NFT Minter",         cat:"NFTs",   price:3,   stars:4.4, uses:310,  desc:"Mint NFTs directly on Hedera Token Service",                    verified:false },
-  { id:"defi",     icon:"💹", name:"DeFi Rates",         cat:"DeFi",   price:0.5, stars:4.3, uses:1560, desc:"Live DeFi rates and yields from the Hedera ecosystem",           verified:true  },
-  { id:"biz",      icon:"🏢", name:"Enterprise Agent",   cat:"B2B",    price:10,  stars:4.9, uses:88,   desc:"Custom B2B AI automation — workflows, reports, integrations",    verified:true  },
-  { id:"mcp",      icon:"🔌", name:"MCP Commerce Agent", cat:"AI",     price:3,   stars:4.7, uses:220,  desc:"Agent-to-agent x402 machine commerce on Hedera",               verified:true  },
+  { id:"weather",          icon:"🌤️", name:"Weather Oracle",           cat:"Data",     price:1,   stars:4.8, uses:1240, desc:"Real-time global weather data & forecasts for any location",          verified:true,  status:"live"   },
+  { id:"market",           icon:"📊", name:"Market Data Feed",         cat:"DeFi",     price:2,   stars:4.6, uses:890,  desc:"Live crypto prices, volumes and market analytics",                   verified:true,  status:"live"   },
+  { id:"research",         icon:"🤖", name:"AI Research Agent",        cat:"AI",       price:5,   stars:4.9, uses:430,  desc:"Deep AI-generated research reports on any topic on demand",          verified:true,  status:"live"   },
+  { id:"hcs",              icon:"📝", name:"HCS Logger",               cat:"Hedera",   price:1,   stars:4.7, uses:2100, desc:"Store messages permanently on Hedera Consensus Service",             verified:true,  status:"live"   },
+  { id:"tokens",           icon:"🪙", name:"Token Creator",            cat:"Tokens",   price:2,   stars:4.5, uses:670,  desc:"Launch your own HTS fungible token in seconds",                      verified:false, status:"live"   },
+  { id:"nft",              icon:"🖼️", name:"NFT Minter",               cat:"NFTs",     price:3,   stars:4.4, uses:310,  desc:"Mint NFTs directly on Hedera Token Service",                        verified:false, status:"live"   },
+  { id:"defi",             icon:"💹", name:"DeFi Rates",               cat:"DeFi",     price:0.5, stars:4.3, uses:1560, desc:"Live DeFi rates and yields from the Hedera ecosystem",               verified:true,  status:"live"   },
+  { id:"biz",              icon:"🏢", name:"Enterprise Agent",         cat:"B2B",      price:10,  stars:4.9, uses:88,   desc:"Custom B2B automation workflows, reports and integrations",          verified:true,  status:"live"   },
+  { id:"mcp",              icon:"🔌", name:"MCP Commerce Agent",       cat:"AI",       price:3,   stars:4.7, uses:220,  desc:"Agent-to-agent x402 machine commerce on Hedera",                    verified:true,  status:"live"   },
+  { id:"explorer",         icon:"🔍", name:"Hedera Explorer Agent",    cat:"Hedera",   price:1,   stars:4.8, uses:0,    desc:"Query any account, transaction or token on Hedera via Mirror Node",  verified:true,  status:"coming" },
+  { id:"treasury",         icon:"💰", name:"HBAR Treasury Agent",      cat:"Data",     price:2,   stars:4.7, uses:0,    desc:"Real-time HBAR price, staking yields and treasury reports",          verified:true,  status:"coming" },
+  { id:"governance",       icon:"🏛️", name:"Governance Agent",         cat:"Hedera",   price:2,   stars:4.6, uses:0,    desc:"Analyze Hedera Improvement Proposals and governance updates",        verified:true,  status:"coming" },
+  { id:"orchestrator",     icon:"🧠", name:"Multi-Agent Orchestrator", cat:"AI",       price:5,   stars:4.9, uses:0,    desc:"Route requests across multiple agents autonomously in one pipeline", verified:true,  status:"coming" },
+  { id:"wallet-analytics", icon:"👛", name:"Wallet Analytics Agent",   cat:"Data",     price:2,   stars:4.5, uses:0,    desc:"Full HBAR wallet history, P&L and spending breakdown",               verified:true,  status:"coming" },
+  { id:"learning",         icon:"🎓", name:"Learning Agent",           cat:"AI",       price:1,   stars:4.8, uses:0,    desc:"Interactive Hedera tutorials — learn SDK, tokens, smart contracts",  verified:false, status:"coming" },
+  { id:"payment-gateway",  icon:"⚡", name:"Payment Gateway Agent",    cat:"Payments", price:1,   stars:4.7, uses:0,    desc:"Add HBAR and USDC payment gating to any app via x402 in minutes",   verified:true,  status:"coming" },
+  { id:"recurring",        icon:"🔄", name:"Recurring Payment Agent",  cat:"Payments", price:2,   stars:4.6, uses:0,    desc:"Set up weekly or monthly HBAR streams via scheduled transactions",   verified:true,  status:"coming" },
+  { id:"bulk-payment",     icon:"💸", name:"Bulk Payment Agent",       cat:"Payments", price:2,   stars:4.5, uses:0,    desc:"Send HBAR to multiple accounts in one transaction",                  verified:true,  status:"coming" },
+  { id:"invoice",          icon:"🧾", name:"Invoice Agent",            cat:"Payments", price:1,   stars:4.4, uses:0,    desc:"Generate HBAR payment requests, track status and send receipts",     verified:false, status:"coming" },
+  { id:"splitter",         icon:"🔀", name:"Payment Splitter Agent",   cat:"Payments", price:2,   stars:4.6, uses:0,    desc:"Split incoming HBAR between multiple wallets automatically",          verified:true,  status:"coming" },
+  { id:"pay-analytics",    icon:"📊", name:"Payment Analytics Agent",  cat:"Payments", price:2,   stars:4.7, uses:0,    desc:"Full history of every HBAR payment by agent, user and time period",  verified:true,  status:"coming" },
+  { id:"bridge",           icon:"🌉", name:"Cross-Chain Bridge Agent", cat:"Payments", price:3,   stars:4.5, uses:0,    desc:"Accept ETH or USDC on other chains and bridge to HBAR for HashPay", verified:false, status:"coming" },
+  { id:"policy",           icon:"⚖️", name:"Policy and Compliance",    cat:"Utility",  price:3,   stars:4.8, uses:0,    desc:"Enforce payment rules, spending limits and compliance logging to HCS",verified:true, status:"coming" },
 ];
 
-const CATS = ["All","AI","DeFi","Data","Hedera","Tokens","NFTs","B2B"];
+const CATS = ["All","AI","DeFi","Data","Hedera","Tokens","NFTs","B2B","Payments","Utility"];
 
 const NAV = [
   { icon:"⚡", label:"Marketplace", id:"market"    },
@@ -508,10 +522,25 @@ export default function App() {
   const [txCount,  setTxCount]  = useState(7512);
   const [sideOpen, setSideOpen] = useState(false);
   const [search,   setSearch]   = useState("");
+  const [stats,    setStats]    = useState(null);
+  const [liveTxs,  setLiveTxs]  = useState([]);
   const mobile = useMobile();
 
+  const API = "";
+
   useEffect(()=>{
-    const iv = setInterval(()=>setTxCount(n=>n+Math.floor(Math.random()*3)),7000);
+    fetch(`${API}/api/stats`)
+      .then(r=>r.json())
+      .then(d=>{ setStats(d); setTxCount(d.recentTxCount); })
+      .catch(()=>{});
+    fetch(`${API}/api/transactions?limit=10`)
+      .then(r=>r.json())
+      .then(d=>{ if(d.transactions) setLiveTxs(d.transactions); })
+      .catch(()=>{});
+    const iv = setInterval(()=>{
+      fetch(`${API}/api/stats`).then(r=>r.json()).then(d=>{ setStats(d); setTxCount(d.recentTxCount); }).catch(()=>{});
+      fetch(`${API}/api/transactions?limit=10`).then(r=>r.json()).then(d=>{ if(d.transactions) setLiveTxs(d.transactions); }).catch(()=>{});
+    }, 30000);
     return ()=>clearInterval(iv);
   },[]);
 
@@ -598,9 +627,9 @@ export default function App() {
                   </div>
                   <div style={{ display:"flex", gap:mobile?24:40 }}>
                     {[
-                      { v:"9",    l:"Services" },
-                      { v:"<3s",  l:"Verify"   },
-                      { v:"$0.01",l:"Avg Fee"  },
+                      { v:"23",                               l:"Agents"  },
+                      { v:stats?stats.recentTxCount+"":"...", l:"Txs"     },
+                      { v:"$2.00",                            l:"Avg Fee" },
                     ].map(s=>(
                       <div key={s.l}>
                         <GT s={{ fontSize:mobile?18:22, fontWeight:800, display:"block" }}>{s.v}</GT>
