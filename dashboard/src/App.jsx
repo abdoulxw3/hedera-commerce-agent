@@ -37,6 +37,7 @@ const AGENTS = [
   { id:"pay-analytics",    icon:"📊", name:"Payment Analytics Agent",  cat:"Payments", price:2,   stars:4.7, uses:0,    desc:"Full history of every HBAR payment by agent, user and time period",  verified:true,  status:"coming" },
   { id:"bridge",           icon:"🌉", name:"Cross-Chain Bridge Agent", cat:"Payments", price:3,   stars:4.5, uses:0,    desc:"Accept ETH or USDC on other chains and bridge to HBAR for HashPay", verified:false, status:"coming" },
   { id:"policy",           icon:"⚖️", name:"Policy and Compliance",    cat:"Utility",  price:3,   stars:4.8, uses:0,    desc:"Enforce payment rules, spending limits and compliance logging to HCS",verified:true, status:"coming" },
+  { id:"nft-collection",   icon:"🎨", name:"NFT Collection Generator", cat:"NFTs",     price:4,   stars:4.9, uses:0,    desc:"Describe your collection — AI generates unique images, traits and rarity for any supply size, then mints the full collection on Hedera Token Service", verified:true, status:"coming" },
 ];
 
 const CATS = ["All","AI","DeFi","Data","Hedera","Tokens","NFTs","B2B","Payments","Utility"];
@@ -166,6 +167,7 @@ function AgentCard({ agent, onAccess }) {
         <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:6 }}>
           <Tag color={C.cyanL} bg={C.cyanD} border="rgba(6,182,212,0.3)">{agent.price} HBAR</Tag>
           {agent.verified && <span style={{ fontSize:11, color:C.greenL, fontWeight:600 }}>✓ Verified</span>}
+          {agent.status==="coming" && <span style={{ fontSize:10, color:C.amber, fontWeight:600, background:"rgba(245,158,11,0.1)", border:"1px solid rgba(245,158,11,0.3)", padding:"2px 7px", borderRadius:10 }}>Coming Soon</span>}
         </div>
       </div>
       <div style={{ fontSize:16, fontWeight:700, marginBottom:6, color:C.t1 }}>{agent.name}</div>
@@ -174,7 +176,14 @@ function AgentCard({ agent, onAccess }) {
         <span style={{ fontSize:12, color:C.t4 }}>⭐ {agent.stars} · {agent.uses.toLocaleString()} uses</span>
         <Tag>{agent.cat}</Tag>
       </div>
-      <button onClick={onAccess} style={{ ...b.btn, width:"100%", padding:"12px 0", fontSize:13 }}>Pay & Access</button>
+      <button onClick={onAccess} disabled={agent.status==="coming"}
+        style={{ ...b.btn, width:"100%", padding:"12px 0", fontSize:13,
+          opacity:agent.status==="coming"?0.5:1,
+          cursor:agent.status==="coming"?"not-allowed":"pointer",
+          background:agent.status==="coming"?"rgba(255,255,255,0.08)":b.btn.background,
+          border:agent.status==="coming"?`1px solid ${C.border}`:"none" }}>
+        {agent.status==="coming" ? "Coming Soon" : "Pay & Access"}
+      </button>
     </div>
   );
 }
