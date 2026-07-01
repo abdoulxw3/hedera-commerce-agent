@@ -439,14 +439,37 @@ function BuildScreen({ onNav, mobile }) {
         </div>
 
         {/* Input */}
-        <div style={{ padding:"14px 18px", borderTop:`1px solid ${C.border}`, display:"flex", gap:10,
+        <div style={{ padding:"14px 18px", borderTop:`1px solid ${C.border}`,
           flexShrink:0, background:"rgba(5,5,17,0.95)" }}>
-          <input value={input} onChange={e=>setInput(e.target.value)}
-            onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&activeSend()}
-            placeholder={mode==="sandbox"?"Chat with your agent...":"What should your agent do?"}
-            style={{ ...b.input, flex:1 }} />
-          <button onClick={activeSend} disabled={loading}
-            style={{ ...b.btn, padding:"13px 18px", opacity:loading?0.5:1, flexShrink:0 }}>Send</button>
+          {image && (
+            <div style={{ marginBottom:8, position:"relative", display:"inline-block" }}>
+              <img src={image} alt="upload" style={{ height:60, borderRadius:8, border:`1px solid ${C.border}` }} />
+              <button onClick={()=>setImage(null)} style={{ position:"absolute", top:-6, right:-6,
+                width:18, height:18, borderRadius:"50%", background:C.red, border:"none",
+                color:"#fff", fontSize:10, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>✕</button>
+            </div>
+          )}
+          <div style={{ display:"flex", gap:10 }}>
+            <label style={{ ...b.ghost, padding:"13px 14px", flexShrink:0, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}
+              title="Upload image or take photo">
+              📎
+              <input type="file" accept="image/*" capture="environment" style={{ display:"none" }}
+                onChange={e=>{
+                  const file = e.target.files[0];
+                  if (!file) return;
+                  const reader = new FileReader();
+                  reader.onload = ev => setImage(ev.target.result);
+                  reader.readAsDataURL(file);
+                  e.target.value = "";
+                }} />
+            </label>
+            <input value={input} onChange={e=>setInput(e.target.value)}
+              onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&activeSend()}
+              placeholder={mode==="sandbox"?"Chat with your agent or attach an image...":"What should your agent do?"}
+              style={{ ...b.input, flex:1 }} />
+            <button onClick={activeSend} disabled={loading}
+              style={{ ...b.btn, padding:"13px 18px", opacity:loading?0.5:1, flexShrink:0 }}>Send</button>
+          </div>
         </div>
       </div>
 
