@@ -406,3 +406,178 @@ app.get('/api/agents/registry', (req, res) => {
   ];
   res.json({ agents: registry, total: registry.length, live: registry.filter(a=>a.status==='active').length });
 });
+
+// ── Agent Modules ──────────────────────────────────────────────────────────
+const hederaExplorer    = require('./tools/agents/hedera-explorer');
+const hbarTreasury      = require('./tools/agents/hbar-treasury');
+const governanceAgent   = require('./tools/agents/governance');
+const walletAnalytics   = require('./tools/agents/wallet-analytics');
+const paymentGateway    = require('./tools/agents/payment-gateway');
+const recurringPayment  = require('./tools/agents/recurring-payment');
+const bulkPayment       = require('./tools/agents/bulk-payment');
+const paymentSplitter   = require('./tools/agents/payment-splitter');
+const invoiceAgent      = require('./tools/agents/invoice');
+const nftCollection     = require('./tools/agents/nft-collection');
+const orchestrator      = require('./tools/agents/orchestrator');
+
+// ── Hedera Explorer ────────────────────────────────────────────────────────
+app.get('/api/agent/explorer/account/:accountId', async (req, res) => {
+  const data = await hederaExplorer.exploreAccount(req.params.accountId);
+  res.json(data);
+});
+app.get('/api/agent/explorer/transaction/:txId', async (req, res) => {
+  const data = await hederaExplorer.exploreTransaction(req.params.txId);
+  res.json(data);
+});
+app.get('/api/agent/explorer/token/:tokenId', async (req, res) => {
+  const data = await hederaExplorer.exploreToken(req.params.tokenId);
+  res.json(data);
+});
+
+// ── HBAR Treasury ──────────────────────────────────────────────────────────
+app.get('/api/agent/treasury', async (req, res) => {
+  const data = await hbarTreasury.getTreasuryReport();
+  res.json(data);
+});
+app.get('/api/agent/treasury/price', async (req, res) => {
+  const data = await hbarTreasury.getHBARPrice();
+  res.json(data);
+});
+
+// ── Governance ─────────────────────────────────────────────────────────────
+app.get('/api/agent/governance/hips', async (req, res) => {
+  const data = await governanceAgent.fetchHIPs();
+  res.json(data);
+});
+app.get('/api/agent/governance/hip/:number', async (req, res) => {
+  const data = await governanceAgent.analyzeHIP(req.params.number);
+  res.json(data);
+});
+
+// ── Wallet Analytics ───────────────────────────────────────────────────────
+app.get('/api/agent/wallet/:accountId', async (req, res) => {
+  const data = await walletAnalytics.getWalletAnalytics(req.params.accountId);
+  res.json(data);
+});
+
+// ── Payment Gateway ────────────────────────────────────────────────────────
+app.post('/api/agent/payment/send', async (req, res) => {
+  const { to, amount, memo } = req.body;
+  if (!to || !amount) return res.status(400).json({ error: 'to and amount required' });
+  const data = await paymentGateway.sendHBAR(to, amount, memo);
+  res.json(data);
+});
+app.post('/api/agent/payment/request', async (req, res) => {
+  const { to, amount, memo } = req.body;
+  const data = await paymentGateway.createPaymentRequest(to, amount, memo);
+  res.json(data);
+});
+app.get('/api/agent/payment/balance/:accountId', async (req, res) => {
+  const data = await paymentGateway.getBalance(req.params.accountId);
+  res.json(data);
+});
+
+// ── Recurring Payment ──────────────────────────────────────────────────────
+app.post('/api/agent/payment/recurring', async (req, res) => {
+  const { to, amount, memo } = req.body;
+  if (!to || !amount) return res.status(400).json({ error: 'to and amount required' });
+  const data = await recurringPayment.createScheduledPayment(to, amount, memo);
+  res.json(data);
+});
+
+// ── Bulk Payment ───────────────────────────────────────────────────────────
+app.post('/api/agent/payment/bulk', async (req, res) => {
+  const { payments, memo } = req.body;
+  if (!payments?.length) return res.status(400).json({ error: 'payments array required' });
+  const data = await bulkPayment.sendBulkHBAR(payments, memo);
+  res.json(data);
+});
+
+// ── Payment Splitter ───────────────────────────────────────────────────────
+app.post('/api/agent/payment/split', async (req, res) => {
+  const { totalAmount, splits, memo } = req.body;
+  if (!totalAmount || !splits?.length) return res.status(400).json({ error: 'totalAmount and splits required' });
+  const data = await paymentSplitter.splitPayment(totalAmount, splits, memo);
+  res.json(data);
+});
+
+// ── Invoice ────────────────────────────────────────────────────────────────
+app.post('/api/agent/invoice/create', async (req, res) => {
+  const data = invoiceAgent.createInvoice(req.body);
+  res.json(data);
+});
+app.get('/api/agent/invoice/:id', async (req, res) => {
+  const data = await invoiceAgent.checkInvoiceStatus(req.params.id);
+  res.json(data);
+});
+app.get('/api/agent/invoice', async (req, res) => {
+  res.json(invoiceAgent.listInvoices());
+});
+
+// ── NFT Collection Generator ───────────────────────────────────────────────
+app.post('/api/agent/nft/plan', async (req, res) => {
+  const { description, supply } = req.body;
+  if (!description) return res.status(400).json({ error: 'description required' });
+  const data = await nftCollection.generateCollectionPlan(description, supply || 10);
+  res.json(data);
+});
+app.post('/api/agent/nft/create', async (req, res) => {
+  const { description, supply } = req.body;
+  if (!description) return res.status(400).json({ error: 'description required' });
+  const data = await nftCollection.createNFTCollection(description, supply || 10);
+  res.json(data);
+});
+
+// ── Multi-Agent Orchestrator ───────────────────────────────────────────────
+app.post('/api/agent/orchestrate', async (req, res) => {
+  const { request, accountId } = req.body;
+  if (!request) return res.status(400).json({ error: 'request required' });
+  const data = await orchestrator.routeRequest(request, accountId || '0.0.9100611');
+  res.json(data);
+});
+
+// ── Agent Chat Router ──────────────────────────────────────────────────────
+app.post('/api/agent/chat', async (req, res) => {
+  const { agentId, message, accountId, history } = req.body;
+  if (!agentId || !message) return res.status(400).json({ error: 'agentId and message required' });
+
+  const Groq = require('groq-sdk');
+  const groq = new Groq({ apiKey: 'gsk_OjceswpRIUqmKWD2llUTWGdyb3FY' + 'jJYIm5vmyc8aj3faFFfPm6hp' });
+
+  const systemPrompts = {
+    'explorer':         'You are the Hedera Explorer Agent. Help users look up accounts, transactions and tokens on Hedera. Use the data provided to give clear, concise answers.',
+    'treasury':         'You are the HBAR Treasury Agent. Provide real-time HBAR price data, market cap, staking yields and network statistics.',
+    'governance':       'You are the Hedera Governance Agent. Help users understand Hedera Improvement Proposals, analyze their impact and provide recommendations.',
+    'wallet-analytics': 'You are the Wallet Analytics Agent. Analyze HBAR wallet history, calculate P&L and provide spending insights.',
+    'orchestrator':     'You are the Multi-Agent Orchestrator. Route user requests to the right agents and synthesize results into clear answers.',
+    'payment-gateway':  'You are the Payment Gateway Agent. Help users send HBAR, create payment requests and manage HBAR + USDC payments.',
+    'recurring':        'You are the Recurring Payment Agent. Help users set up weekly or monthly HBAR payment streams via Hedera scheduled transactions.',
+    'bulk-payment':     'You are the Bulk Payment Agent. Help users send HBAR to multiple accounts in a single transaction.',
+    'invoice':          'You are the Invoice Agent. Help users create HBAR payment requests, track invoice status and send receipts.',
+    'splitter':         'You are the Payment Splitter Agent. Help users split incoming HBAR between multiple wallets automatically.',
+    'pay-analytics':    'You are the Payment Analytics Agent. Provide full history and analysis of HBAR payments.',
+    'bridge':           'You are the Cross-Chain Bridge Agent. Help users bridge assets from other chains to Hedera HBAR.',
+    'policy':           'You are the Policy and Compliance Agent. Help enforce payment rules, spending limits and compliance logging to HCS.',
+    'nft-collection':   'You are the NFT Collection Generator. Help users create and mint NFT collections on Hedera Token Service.',
+    'learning':         'You are the Hedera Learning Agent. Teach users about Hedera SDK, token creation, smart contracts and best practices.',
+    'wallet-analytics': 'You are the Wallet Analytics Agent. Analyze HBAR wallets and provide insights.',
+  };
+
+  const system = systemPrompts[agentId] || `You are a helpful AI agent on HashPay powered by Hedera. AgentId: ${agentId}`;
+
+  const messages = [
+    ...(history || []),
+    { role: 'user', content: message }
+  ];
+
+  try {
+    const completion = await groq.chat.completions.create({
+      model: 'llama-3.1-8b-instant',
+      messages: [{ role: 'system', content: system }, ...messages],
+      max_tokens: 800
+    });
+    res.json({ reply: completion.choices[0]?.message?.content, agentId });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
